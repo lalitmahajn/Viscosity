@@ -1,0 +1,21 @@
+# requirements.txt
+# Core config + validation
+PyYAML>=6.0
+jsonschema>=4.21.0
+
+# Modbus server/client utilities
+pymodbus>=3.6.0
+
+# Raspberry Pi hardware interfaces
+# smbus2>=0.4.3          # I2C (ADS1115)
+# spidev>=3.6            # SPI (MAX31865)
+# RPi.GPIO>=0.7.1        # GPIO/PWM (fallback if you use RPi.GPIO in driver)
+
+# DSP / math (lock-in, filters, sweep support)
+numpy>=1.24.0
+
+# Compatibility (safe on older Python)
+typing-extensions>=4.7.0
+
+# Audio input for testing
+sounddevice>=0.4.6

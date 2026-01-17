@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+
+# Project Specific
+logs/
+data/*.db
+data/*.sqlite3
+viscologic/viscologic.db
+File_done_or_pending.txt
+
+# Environment variables
+.env
+*.env
+
+# Operating System
+.DS_Store
+Thumbs.db

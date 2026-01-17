@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itsOji.com/viscologic/settings.schema.json",
+  "title": "ViscoLogic Settings Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "app": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "mode": { "type": "string", "enum": ["tabletop", "inline"] },
+        "control_source": { "type": "string", "enum": ["local", "remote", "mixed"] },
+        "inline_auto_resume": { "type": "boolean" },
+        "ui_refresh_ms": { "type": "integer", "minimum": 50, "maximum": 5000 },
+        "sample_rate_hz": { "type": "integer", "minimum": 10, "maximum": 5000 },
+        "timezone": { "type": "string" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "engineer_password": { "type": "string", "minLength": 1 },
+        "session_timeout_s": { "type": "integer", "minimum": 60, "maximum": 86400 },
+        "commissioning": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "require_first_time_lock": { "type": "boolean" },
+            "allow_reset_by_engineer": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "hardware": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "i2c_bus": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "spi_bus": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "gpio": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "pwm_pin": { "type": "integer", "minimum": 0, "maximum": 40 },
+            "enable_pin": { "type": "integer", "minimum": 0, "maximum": 40 },
+            "fault_pin": { "type": "integer", "minimum": 0, "maximum": 40 }
+          }
+        }
+      }
+    },
+    "drivers": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "adc_ads1115": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "i2c_addr": { "type": "integer", "minimum": 1, "maximum": 127 },
+            "gain": { "type": "integer", "minimum": 0, "maximum": 8 },
+            "sample_rate_sps": { "type": "integer", "minimum": 8, "maximum": 860 },
+            "channel_diff": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": { "type": "integer", "minimum": 0, "maximum": 3 }
+            },
+            "vref": { "type": "number", "minimum": 1.0, "maximum": 5.5 },
+            "scale": { "type": "number", "minimum": 0.001, "maximum": 1000.0 }
+          }
+        },
+        "temp_max31865": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "spi_cs": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "rtd_nominal": { "type": "number", "minimum": 50.0, "maximum": 1000.0 },
+            "ref_resistor": { "type": "number", "minimum": 10.0, "maximum": 2000.0 },
+            "wires": { "type": "integer", "enum": [2, 3, 4] },
+            "filter_hz": { "type": "integer", "enum": [50, 60] },
+            "fault_check_interval_s": { "type": "number", "minimum": 0.1, "maximum": 60.0 }
+          }
+        },
+        "drive_pwm": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "pwm_freq_hz": { "type": "integer", "minimum": 100, "maximum": 200000 },
+            "duty_min": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "duty_max": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "start_duty": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "ramp_step": { "type": "number", "minimum": 0.0001, "maximum": 0.2 },
+            "ramp_interval_ms": { "type": "integer", "minimum": 1, "maximum": 2000 }
+          }
+        }
+      }
+    },
+    "dsp": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "target_freq_hz": { "type": "number", "minimum": 1.0, "maximum": 2000.0 },
+        "sweep_span_hz": { "type": "number", "minimum": 0.1, "maximum": 500.0 },
+        "sweep_step_hz": { "type": "number", "minimum": 0.001, "maximum": 50.0 },
+        "sweep_dwell_ms": { "type": "integer", "minimum": 5, "maximum": 2000 },
+        "lockin_tau_s": { "type": "number", "minimum": 0.01, "maximum": 10.0 },
+        "notch_hz": { "type": "number", "minimum": 0.0, "maximum": 1000.0 },
+        "notch_q": { "type": "number", "minimum": 0.1, "maximum": 1000.0 },
+        "bandpass": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "low_hz": { "type": "number", "minimum": 0.1, "maximum": 5000.0 },
+            "high_hz": { "type": "number", "minimum": 0.1, "maximum": 5000.0 },
+            "order": { "type": "integer", "minimum": 1, "maximum": 8 }
+          }
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enable": { "type": "boolean" },
+        "min_confidence_ok": { "type": "number", "minimum": 0.0, "maximum": 100.0 },
+        "min_confidence_good": { "type": "number", "minimum": 0.0, "maximum": 100.0 },
+        "max_freq_jump_hz": { "type": "number", "minimum": 0.0, "maximum": 1000.0 },
+        "max_noise_ratio": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "max_dropouts_per_min": { "type": "integer", "minimum": 0, "maximum": 100000 }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "feature_key": { "type": "string" },
+        "viscosity_min_cp": { "type": "number", "minimum": 0.0 },
+        "viscosity_max_cp": { "type": "number", "minimum": 0.0 },
+        "temp_compensation": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "reference_temp_c": { "type": "number", "minimum": -50.0, "maximum": 250.0 },
+            "alpha_per_c": { "type": "number", "minimum": -1.0, "maximum": 1.0 }
+          }
+        }
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "active_profile": { "type": "string" },
+        "min_points_required": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "recommended_points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "name": { "type": "string" },
+              "cp": { "type": "number", "minimum": 0.0 }
+            },
+            "required": ["name", "cp"]
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "max_current_ma": { "type": "number", "minimum": 1.0, "maximum": 500.0 },
+        "max_temp_c": { "type": "number", "minimum": 1.0, "maximum": 200.0 },
+        "max_drive_duty": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "soft_start_s": { "type": "number", "minimum": 0.0, "maximum": 60.0 },
+        "fault_latch": { "type": "boolean" },
+        "fault_reset_requires_ack": { "type": "boolean" }
+      }
+    },
+    "protocols": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "modbus_server": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "host": { "type": "string" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "unit_id": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "update_period_ms": { "type": "integer", "minimum": 50, "maximum": 5000 }
+          }
+        },
+        "remote_enable": { "type": "boolean" },
+        "comm_loss_timeout_ms": { "type": "integer", "minimum": 100, "maximum": 600000 },
+        "comm_loss_action": { "type": "string", "enum": ["safe_stop", "hold_last", "pause"] }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "sqlite": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "path": { "type": "string" }
+          }
+        },
+        "csv_logger": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "folder": { "type": "string" },
+            "rotate_daily": { "type": "boolean" },
+            "retention_days": { "type": "integer", "minimum": 0, "maximum": 3650 }
+          }
+        },
+        "retention": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "db_days": { "type": "integer", "minimum": 0, "maximum": 3650 },
+            "csv_days": { "type": "integer", "minimum": 0, "maximum": 3650 }
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "theme": { "type": "string", "enum": ["dark", "light"] },
+        "show_confidence": { "type": "boolean" },
+        "show_health": { "type": "boolean" },
+        "show_frequency": { "type": "boolean" },
+        "kiosk_mode": { "type": "boolean" }
+      }
+    },
+    "plc": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "allow_remote_start": { "type": "boolean" },
+        "allow_remote_stop": { "type": "boolean" },
+        "remote_start_edge": { "type": "boolean" },
+        "remote_stop_edge": { "type": "boolean" },
+        "local_stop_always_allowed": { "type": "boolean" }
+      }
+    }
+  }
+}

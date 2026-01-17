@@ -1,0 +1,791 @@
+This is the final plan to execution and the other of the files have given you for reference purpose. 
+
+
+नीचे **ViscoLogic Viscosity Meter** का **FINAL LOCKED PLAN (vFinal)** है। यह वही architecture है जो हमने discuss किया, और इसमें **one-time commissioning password**, **auto-open + power fail recovery**, **Tabletop/Inline**, **Local/Remote/Mixed control**, **PLC Modbus TCP (data out + commands in)**, **150 mA safety**, **Reading Health% (No ML)**, **unlimited calibration points**, **UI + backend + logging + retention + tests** सब शामिल है। यह plan “सबको समझ आए” तरीके से लिखा है और developer के लिए implementable भी है।
+
+---
+
+# 0) Single-line Promise (Locked)
+
+“Power ON के बाद software खुद start होगा, safe तरीके से drive चलाकर resonance lock करेगा, stable viscosity (cP) दिखाएगा, data log करेगा, और PLC को live values देगा; PLC से start/stop भी possible होगा (rules के साथ)।”
+
+---
+
+# 1) System Goals (What must be achieved)
+
+1. **Stable viscosity output (cP)** with noise rejection
+2. **Safe operation** (150 mA cap, fault latch, safe idle)
+3. **Auto recovery** (lost lock, power fail, comm loss)
+4. **Easy UI** (operator simple, engineer advanced)
+5. **PLC integration** (readings + commands)
+6. **Expandable design** (new ADC/protocol/model later)
+
+---
+
+# 2) Boot, Auto-Open, Power Fail (Final behavior)
+
+## 2.1 Auto-open on boot
+
+* Raspberry Pi boot पर app **systemd** से auto-start
+* crash पर auto-restart
+* startup default: **Drive OFF** until checks pass
+
+## 2.2 Power fail recovery
+
+* Power आते ही app फिर auto-start
+* self-check → safe idle → mode-based resume
+
+## 2.3 Mode-based auto resume
+
+* **Tabletop:** auto resume OFF (user Start करेगा)
+* **Inline:** auto resume ON (अगर enabled), self-check OK के बाद auto-run
+
+---
+
+# 3) One-time Commissioning Password (New machine only)
+
+## 3.1 Why
+
+नई machine/installation पर first-time setup secure होना चाहिए और बाद में operator को बार-बार password ना देना पड़े।
+
+## 3.2 Final rules
+
+* अगर `commissioned=false`:
+
+  * app commissioning password मांगेगा (एक बार)
+  * commissioning wizard complete होने पर `commissioned=true`
+* `commissioned=true` होने के बाद:
+
+  * boot पर commissioning password **कभी नहीं** मांगेगा
+* Engineer settings/calibration के लिए अलग password **हमेशा** रहेगा
+
+## 3.3 Re-commission (Engineer only)
+
+* Engineer screen में “Re-Commission Device” (commissioned=false)
+* next boot पर फिर commissioning lock लगेगा
+
+---
+
+# 4) Operating Modes (Tabletop vs Inline)
+
+## 4.1 Tabletop (Manual)
+
+* Start/Stop user करता है
+* calibration friendly
+* stop = measurement बंद
+
+## 4.2 Inline (Continuous)
+
+* 24x7 run (PLC remote recommended)
+* UI में “Enable / Pause(Maintenance)”
+* auto relock + alarms continuous
+* comm-loss action configurable (Pause recommended)
+
+---
+
+# 5) Control Source (Local / Remote / Mixed) + Priority Rules
+
+## 5.1 Control Source definitions
+
+* **Local:** UI start/stop valid, PLC commands ignored
+* **Remote:** PLC start/stop valid, UI start disabled (view + maintenance + estop)
+* **Mixed:** start UI/PLC दोनों से; stop UI/PLC दोनों से
+
+## 5.2 Final priority rules (must)
+
+1. **E-Stop highest priority** (drive OFF + latched)
+2. **STOP always overrides START**
+3. **Remote mode में local start disabled**
+4. Fault latched होने पर start block until reset
+5. Inline comm loss action:
+
+   * Option A: Keep running + alarm
+   * Option B (recommended): **Pause to safe** + alarm
+
+---
+
+# 6) Safety Plan (150 mA protection)
+
+## 6.1 Hardware safety (must)
+
+* Drive path में hardware current limiting
+* Absolute max: **150 mA**
+
+## 6.2 Software safety (must)
+
+* Drive OFF until READY
+* soft-start ramp
+* air calibration low power:
+
+  * 30–60 mA
+  * max 10–15 sec
+  * auto stop
+* overcurrent/overheat/critical fault → drive OFF + alarm + latch
+* ADC saturation detection → PGA auto adjust + warning
+
+---
+
+# 7) Measurement Engine (Final technical intent, user-friendly)
+
+## 7.1 Acquisition
+
+* ADS1115 differential (A0-A1), PGA auto-range
+* PT100 via MAX31865
+* data buffering thread-safe
+
+## 7.2 Resonance tracking
+
+* startup sweep (e.g., 150–200 Hz)
+* fine tuning near peak
+* runtime drift follow
+* states: SEARCHING → LOCKING → LOCKED → LOST_LOCK (auto retry)
+
+## 7.3 Noise rejection (Digital Lock-in I/Q)
+
+* reference sin/cos at drive frequency
+* I/Q multiply + low-pass
+* magnitude + phase stable extraction
+
+## 7.4 Reading Health % (No ML)
+
+Deterministic score (0–100):
+
+* lock stability, signal strength/noise, clipping, variance, lock breaks
+  UI label: **Reading Health % / Signal OK %**
+
+---
+
+# 8) Calibration System (Unlimited points + profiles)
+
+## 8.1 Minimum recommended
+
+* Air baseline
+* Water (1 cP)
+* 2–3 oils (e.g., 10/50/200 cP)
+
+## 8.2 Best accuracy
+
+* **4–7+ points** (user add unlimited)
+
+## 8.3 Wizard flow
+
+* Add point → enter known cP → capture 10 sec → save
+* profiles: Oil-A / Oil-B / Customer-1 etc.
+
+## 8.4 Model
+
+* default: **LUT + interpolation** (safe, stable)
+* future: polynomial optional (engineer mode)
+
+---
+
+# 9) Temperature Handling
+
+* live temp display
+* smoothing
+* optional normalization to reference temp (profile-based)
+
+---
+
+# 10) UI Plan (Final screens)
+
+## 10.1 Commissioning Lock Screen (one-time)
+
+* password input
+* unlock
+
+## 10.2 Commissioning Wizard (one-time)
+
+* Mode select (Tabletop/Inline)
+* Control source (Local/Remote/Mixed)
+* Remote enable
+* comm-loss action
+* safety limits view
+* Complete Setup
+
+## 10.3 Operator Screen
+
+* Big viscosity (cP)
+* Temp (°C)
+* Status (Searching/Locked/Error)
+* Reading Health %
+* Buttons:
+
+  * Tabletop: Start/Stop
+  * Inline: Enable/Pause
+* Logging start/stop, export
+* Alarm details
+
+## 10.4 Engineer Screen (password)
+
+Tabs:
+
+1. Mode & Control + comm-loss + resume
+2. Calibration wizard + profiles
+3. Diagnostics (ADC/temp/saturation/lock stats)
+4. Trends (viscosity/freq/health)
+5. PLC/Network (Modbus settings + register map view)
+6. Maintenance (re-commission, reset alarms, retention)
+
+---
+
+# 11) Logging + Backend (Final)
+
+## 11.1 SQLite (recommended)
+
+Tables:
+
+* device_state (commissioned flag, timestamps)
+* settings
+* calibration_profiles
+* calibration_points
+* events (alarms, state changes)
+* optional measurements history
+
+## 11.2 CSV logging
+
+* timestamp, viscosity, temp, freq, health, status, alarms
+* retention: keep last N days, auto delete old
+
+## 11.3 Crash-safe behavior
+
+* auto restart
+* safe state on restart
+* last settings restore
+
+---
+
+# 12) PLC Integration (Modbus TCP) — Final spec
+
+## 12.1 Roles
+
+* Pi = Modbus TCP Server
+* PLC = Modbus Client
+
+## 12.2 Register map (Human style)
+
+### PLC Reads (Meter → PLC)
+
+* 40001–40002: VISC_CP_x100 (int32)
+* 40003: TEMP_C_x100 (int16)
+* 40004: FREQ_HZ_x100 (int16)
+* 40005: READING_HEALTH (0–100)
+* 40006: STATUS_WORD (bits)
+* 40007: ALARM_WORD (bits)
+* 40008: HEARTBEAT (inc 1/sec)
+* 40009: LAST_CMD_SEQ
+
+### PLC Writes (PLC → Meter)
+
+* 41001: MODE_SELECT (0 tabletop, 1 inline)
+* 41002: CONTROL_SOURCE (0 local, 1 remote, 2 mixed)
+* 41003: REMOTE_ENABLE (0/1)
+* 41004: CMD_WORD (bits: start/stop/pause/reset/clear_estop)
+* 41005: CMD_SEQ (increment each new cmd)
+* 41006: CMD_RESULT (0 ok else error)
+* 41007: LOG_ENABLE (0/1)
+* 41008: PROFILE_ID
+
+## 12.3 STATUS_WORD bits (key)
+
+* READY, SELF_CHECK_FAIL, SEARCHING, LOCKED, LOST_LOCK
+* RUNNING, PAUSED, REMOTE_ACTIVE
+* ALARM_ACTIVE, ESTOP_LATCHED
+* ADC_SATURATION, TEMP_FAULT
+* **COMMISSIONING_REQUIRED** (new)
+
+## 12.4 Command handshake
+
+* PLC writes CMD_WORD + CMD_SEQ
+* Meter executes once per new CMD_SEQ
+* Meter updates LAST_CMD_SEQ + CMD_RESULT
+
+---
+
+# 13) Expandability (Future-proof)
+
+Interfaces:
+
+* ADC driver replaceable
+* drive controller replaceable
+* temp sensor replaceable
+* protocol adapters addable (OPC-UA/MQTT/REST)
+* multi-sensor instances future
+
+---
+
+# 14) Final Folder Structure (Production-ready)
+
+```
+viscologic/
+  app.py
+  core/
+    orchestrator.py
+    state_machine.py
+    safety_manager.py
+    diagnostics.py
+    config_manager.py
+    event_bus.py
+  security/
+    commissioning_manager.py
+    auth_engineer.py
+  drivers/
+    adc_ads1115.py
+    drive_pwm.py
+    temp_max31865.py
+  dsp/
+    lockin_iq.py
+    sweep_tracker.py
+    filters.py
+    health_score.py
+  model/
+    calibration_store.py
+    calibration_lut.py
+    viscosity_compute.py
+    temp_compensation.py
+  protocols/
+    modbus_server.py
+    register_map.py
+  storage/
+    sqlite_store.py
+    csv_logger.py
+    retention.py
+  ui/
+    operator_screen.py
+    engineer_screen.py
+    calibration_wizard.py
+    alarms_screen.py
+    commissioning_lock.py
+    commissioning_wizard.py
+  deploy/
+    viscologic.service
+  config/
+    settings.yaml
+    schema.json
+  tests/
+    test_state_machine.py
+    test_register_map.py
+    test_lockin.py
+    test_sweep.py
+```
+
+---
+
+# 15) Development Execution Order (Final)
+
+1. systemd auto-start + safe idle + self-check
+2. commissioning lock + wizard + device_state store
+3. drivers (ADS1115 + PT100 + PWM) + safety manager
+4. state machine + control source arbitration
+5. sweep + lock + stable outputs
+6. lock-in + health score + alarms
+7. calibration wizard + LUT profiles
+8. operator UI + engineer UI
+9. Modbus TCP server + register map + handshake
+10. long-run tests: power fail, comm loss, fault latch
+11. packaging + SOP
+
+
+
+
+
+
+
+
+
+
+
+
+नीचे **ViscoLogic Viscosity Meter** के लिए **Implementation Checklist (file-by-file)** दिया है। यह checklist उसी final locked plan पर आधारित है: **Auto-start + power-fail recovery**, **Tabletop/Inline**, **Local/Remote/Mixed control**, **Modbus TCP (data out + commands in)**, **150 mA safety**, **Reading Health% (No ML)**, **Unlimited calibration points + profiles**, और **One-time commissioning password**।
+
+---
+
+## A) Phase-0: Project skeleton + “Run even with stubs”
+
+### `viscologic/app.py`
+
+* [ ] Central entrypoint बनाओ: config load → logging init → storage init → drivers init → orchestrator init → modbus init → UI init
+* [ ] Graceful shutdown: app बंद होते ही **Drive OFF**
+* [ ] Thread start/stop sequencing define
+  **Done when:** app run होकर window दिखाए, close करने पर clean exit हो, crash पर service restart के लिए compatible हो
+
+### `viscologic/core/event_bus.py`
+
+* [ ] Thread-safe queues: `samples_queue`, `commands_queue`, `status_pub`
+* [ ] Publish/subscribe style simple wrapper
+  **Done when:** UI thread hardware touch किए बिना events/frames receive कर सके
+
+### `viscologic/core/config_manager.py`
+
+* [ ] `settings.yaml` load
+* [ ] `schema.json` validation
+* [ ] defaults + versioning (`mapping_version`)
+  **Done when:** गलत config पर clear error + safe fallback
+
+### `viscologic/config/settings.yaml`
+
+* [ ] keys add: mode, control_source, remote_enable, comm_loss_action, auto_resume_inline, limits, sweep params, logging, modbus
+  **Done when:** सभी major behavior config से change हो सके
+
+### `viscologic/config/schema.json`
+
+* [ ] strict types/ranges: max_current_ma <=150, air_cal_current_ma range, sweep range limits, enum validations
+  **Done when:** invalid config app को crash ना कराए
+
+---
+
+## B) Phase-1: Storage foundation (commissioned flag + profiles + events)
+
+### `viscologic/storage/sqlite_store.py`
+
+* [ ] tables create:
+
+  * `device_state` (commissioned, commissioned_at, last_mode, last_control_source, last_profile_id, remote_enable)
+  * `calibration_profiles` (id, name, created_at)
+  * `calibration_points` (profile_id, known_cp, measured_feature(s), temp_c, created_at)
+  * `events` (timestamp, type, details)
+* [ ] simple CRUD APIs
+  **Done when:** commissioning status + profiles + points persist रहें (reboot के बाद भी)
+
+### `viscologic/storage/csv_logger.py`
+
+* [ ] daily/per-session log writer
+* [ ] columns: timestamp, viscosity_cp, temp_c, freq_hz, health_pct, status_word, alarm_word
+  **Done when:** operator “Start Log/Stop Log” से reliable CSV बने
+
+### `viscologic/storage/retention.py`
+
+* [ ] retention_days अनुसार auto-delete
+  **Done when:** storage uncontrolled grow ना करे
+
+---
+
+## C) Phase-2: Security layer (One-time commissioning + engineer password)
+
+### `viscologic/security/commissioning_manager.py`
+
+* [ ] `is_commissioned()` (sqlite से)
+* [ ] `verify_commissioning_password(pw)` (bcrypt/argon2 hash)
+* [ ] `mark_commissioned()`
+* [ ] `reset_commissioning()` (engineer-only)
+  **Done when:** fresh install पर password मांगता है और complete setup के बाद फिर नहीं मांगता
+
+### `viscologic/security/auth_engineer.py`
+
+* [ ] engineer password verify
+* [ ] session टाइमआउट (optional simple)
+  **Done when:** calibration/settings बिना password open ना हो
+
+---
+
+## D) Phase-3: Drivers (hardware abstraction)
+
+### `viscologic/drivers/adc_ads1115.py`
+
+* [ ] differential read (A0-A1)
+* [ ] PGA auto-range (clipping guard)
+* [ ] stable sampling window (N samples per update)
+* [ ] “ADC not found” detection
+  **Done when:** raw_adc_mv stream stable हो, saturation flag सही उठे
+
+### `viscologic/drivers/temp_max31865.py`
+
+* [ ] PT100 reading + smoothing
+* [ ] sensor fault detection
+  **Done when:** temp updates reliable हों और fault पर alarm उठे
+
+### `viscologic/drivers/drive_pwm.py`
+
+* [ ] PWM output control
+* [ ] soft-start ramp
+* [ ] target amplitude/current mapping placeholder (phase-1 में fixed PWM limit ok)
+* [ ] emergency stop API: immediate OFF
+  **Done when:** drive safely ON/OFF हो और ramp work करे
+
+> Optional future file (अगर real current sense add होगा): `drivers/current_monitor.py`
+
+---
+
+## E) Phase-4: Core reliability (Self-check + Safety + State Machine + Orchestrator)
+
+### `viscologic/core/diagnostics.py`
+
+* [ ] Self-check routines:
+
+  * ADC present?
+  * PT100 present?
+  * baseline signal sanity?
+* [ ] `SelfCheckReport` (pass/fail + reasons)
+  **Done when:** startup पर “System Ready / Self Check Failed (reason)” reliable हो
+
+### `viscologic/core/safety_manager.py`
+
+* [ ] absolute max current rule (150mA cap)
+* [ ] air calibration limits (30–60mA + time limit)
+* [ ] overcurrent/overheat/saturation actions
+* [ ] fault latch + clear rules
+  **Done when:** fault पर drive OFF + latch + clear flow correct हो
+
+### `viscologic/core/state_machine.py`
+
+* [ ] states:
+
+  * BOOTING, SELF_CHECK
+  * COMMISSIONING_LOCK, COMMISSIONING_WIZARD
+  * SAFE_IDLE
+  * SWEEPING, LOCKING, LOCKED_RUNNING
+  * PAUSED_MAINTENANCE
+  * FAULT_LATCHED
+* [ ] transition guards (STOP>START, estop highest, remote rules)
+  **Done when:** edge cases में भी deterministic behavior मिले
+
+### `viscologic/core/orchestrator.py`
+
+* [ ] central engine loop:
+
+  * read commands (UI/PLC)
+  * enforce arbitration (Local/Remote/Mixed)
+  * call safety manager
+  * schedule measurement pipeline
+  * publish MeasurementFrame to UI/PLC
+* [ ] “Drive OFF on any abnormal exit”
+  **Done when:** full system logic एक जगह से controlled हो, UI/PLC direct hardware touch ना करे
+
+---
+
+## F) Phase-5: DSP / Measurement pipeline (No ML, stable)
+
+### `viscologic/dsp/filters.py`
+
+* [ ] moving average/median/low-pass helpers
+  **Done when:** noise reduce tools ready हों
+
+### `viscologic/dsp/lockin_iq.py`
+
+* [ ] I/Q demod (sin/cos reference at drive freq)
+* [ ] LPF + magnitude/phase output
+  **Done when:** stable magnitude/phase features निकलें
+
+### `viscologic/dsp/sweep_tracker.py`
+
+* [ ] sweep (f_min→f_max), best peak pick
+* [ ] drift tracking, re-lock strategy
+* [ ] lost lock timeout rules (inline vs tabletop)
+  **Done when:** Searching→Locked transitions stable हों
+
+### `viscologic/dsp/health_score.py`
+
+* [ ] deterministic health score 0–100:
+
+  * lock stability
+  * SNR proxy
+  * clipping flags
+  * variance
+  * lost-lock counts
+    **Done when:** “Reading Health %” operator decision के लिए meaningful हो
+
+---
+
+## G) Phase-6: Model (Calibration + viscosity compute)
+
+### `viscologic/model/calibration_store.py`
+
+* [ ] profile CRUD (create/select/rename/delete)
+* [ ] add calibration point (known_cp + measured feature + temp)
+  **Done when:** unlimited points add हो सकें
+
+### `viscologic/model/calibration_lut.py`
+
+* [ ] LUT build + interpolation
+* [ ] out-of-range guard (safe extrapolation policy)
+  **Done when:** stable mapping मिले, wild results ना आए
+
+### `viscologic/model/viscosity_compute.py`
+
+* [ ] measured feature(s) → viscosity (cP)
+* [ ] use selected profile
+  **Done when:** operator को consistent cP मिले
+
+### `viscologic/model/temp_compensation.py`
+
+* [ ] optional normalization to ref temp (future safe)
+  **Done when:** temp effects handle करने का slot मौजूद हो
+
+---
+
+## H) Phase-7: PLC protocol (Modbus TCP) + register map + handshake
+
+### `viscologic/protocols/register_map.py`
+
+* [ ] scaling rules:
+
+  * viscosity_x100 (int32)
+  * temp_x100, freq_x100 (int16)
+  * health (0–100)
+* [ ] STATUS_WORD bits (include bit12 COMMISSIONING_REQUIRED)
+* [ ] ALARM_WORD bits
+* [ ] command decode/encode helpers
+  **Done when:** mapping stable versioned हो (`MAPPING_VERSION` register)
+
+### `viscologic/protocols/modbus_server.py`
+
+* [ ] Modbus TCP server start/stop
+* [ ] read callbacks: latest MeasurementFrame → registers
+* [ ] write callbacks: CMD_WORD + CMD_SEQ → Command queue
+* [ ] handshake: LAST_CMD_SEQ + CMD_RESULT handling
+  **Done when:** PLC से start/stop reliably हो और reads smooth हों
+
+---
+
+## I) Phase-8: UI (Operator + Engineer + Commissioning)
+
+### `viscologic/ui/main_window.py`
+
+* [ ] screen routing: commissioning vs operator vs engineer
+* [ ] status bar: connectivity, lock status, alarms
+  **Done when:** app navigation clean हो
+
+### `viscologic/ui/commissioning_lock.py`
+
+* [ ] password prompt
+* [ ] wrong password message
+  **Done when:** commissioned=false पर only यही दिखे
+
+### `viscologic/ui/commissioning_wizard.py`
+
+* [ ] steps:
+
+  * Mode select (Tabletop/Inline)
+  * Control source select (Local/Remote/Mixed)
+  * Remote enable
+  * comm-loss action
+  * logging defaults
+  * Complete Setup → mark commissioned
+    **Done when:** wizard complete होते ही normal operation unlock हो
+
+### `viscologic/ui/operator_screen.py`
+
+* [ ] Big viscosity, temp, status, health%
+* [ ] buttons:
+
+  * Tabletop: Start/Stop
+  * Inline: Enable/Pause
+  * Log Start/Stop
+  * Export
+  * Alarm details
+    **Done when:** non-technical operator भी चला सके
+
+### `viscologic/ui/engineer_screen.py`
+
+* [ ] password gate
+* [ ] tabs:
+
+  * Mode & Control
+  * Calibration
+  * Diagnostics
+  * Trends
+  * PLC/Network view
+  * Maintenance (re-commission, reset alarms, retention)
+    **Done when:** settings/calibration controlled हों
+
+### `viscologic/ui/calibration_wizard.py`
+
+* [ ] profile management
+* [ ] “Add Point” flow: capture 10 sec stable → save
+* [ ] residual warnings/outliers (simple)
+  **Done when:** user unlimited points add कर सके
+
+### `viscologic/ui/alarms_screen.py`
+
+* [ ] active alarms list + meaning + suggested action
+* [ ] reset alarms (engineer/PLC)
+  **Done when:** troubleshooting आसान हो
+
+### `viscologic/ui/trends_view.py` (optional but useful)
+
+* [ ] viscosity/freq/health trends
+  **Done when:** debugging easy हो
+
+---
+
+## J) Phase-9: Deployment (systemd + kiosk optional)
+
+### `viscologic/deploy/viscologic.service`
+
+* [ ] After=network.target
+* [ ] Restart=always
+* [ ] WorkingDirectory + ExecStart python app.py
+* [ ] User permissions
+  **Done when:** boot पर auto-open और crash पर auto-restart working
+
+---
+
+## K) Phase-10: Tests (must-have)
+
+### `viscologic/tests/test_state_machine.py`
+
+* [ ] STOP overrides START
+* [ ] estop highest
+* [ ] remote mode local start blocked
+* [ ] commissioning gate works
+  **Done when:** core rules never regress
+
+### `viscologic/tests/test_register_map.py`
+
+* [ ] scaling packing/unpacking correct
+* [ ] status/alarm bits correct
+* [ ] command handshake logic
+  **Done when:** PLC mapping stable
+
+### `viscologic/tests/test_lockin.py`
+
+* [ ] synthetic sinus input पर magnitude stable
+  **Done when:** DSP base correct
+
+### `viscologic/tests/test_sweep.py`
+
+* [ ] fake peak signal पर correct resonance pick
+  **Done when:** sweep logic correct
+
+> Optional: `tests/test_modbus_integration.py` (local modbus client script)
+
+---
+
+## L) Phase-11: Documentation (Operator/Engineer/PLC)
+
+### `viscologic/docs/SOP_operator.md`
+
+* [ ] Tabletop SOP
+* [ ] Inline SOP
+* [ ] Alarm actions
+  **Done when:** site operator बिना dev के चला सके
+
+### `viscologic/docs/SOP_engineer.md`
+
+* [ ] commissioning reset
+* [ ] calibration procedure
+* [ ] maintenance mode
+  **Done when:** engineer workflow clear हो
+
+### `viscologic/docs/PLC_register_map.md`
+
+* [ ] registers + scaling + bits + handshake
+  **Done when:** PLC engineer confusion-free integrate कर सके
+
+---
+
+# Final System Acceptance Checklist (End-to-End)
+
+* [ ] Boot पर auto-open + self-check
+* [ ] Fresh device: commissioning password once only; complete setup के बाद boot पर repeat नहीं
+* [ ] Engineer password always required for settings/calibration
+* [ ] Tabletop: Start/Stop सही
+* [ ] Inline: Enable/Pause सही, comm-loss action सही
+* [ ] E-Stop latch + clear flow सही
+* [ ] ADC saturation detect + PGA auto adjust warning
+* [ ] Overcurrent logic triggers drive OFF + alarm
+* [ ] Calibration: multiple profiles + unlimited points working
+* [ ] Logging CSV + retention working
+* [ ] Modbus: PLC reads stable + commands handshake stable + heartbeat increments
+* [ ] Power-cycle test: safe state + restore last settings + inline auto-resume rule respected
+

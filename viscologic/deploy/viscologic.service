@@ -1,0 +1,47 @@
+# viscologic/deploy/viscologic.service
+# Systemd service for auto-start on Raspberry Pi (Linux)
+# Install:
+#   sudo cp viscologic/deploy/viscologic.service /etc/systemd/system/viscologic.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable viscologic
+#   sudo systemctl start viscologic
+#
+# Logs:
+#   journalctl -u viscologic -f
+
+[Unit]
+Description=ViscoLogic Viscosity Meter Application
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Change this user to your Raspberry Pi user (e.g., pi)
+User=pi
+Group=pi
+
+# Working directory where the viscologic/ folder exists
+WorkingDirectory=/home/pi/viscologic
+
+# If you use a venv, point to it:
+# ExecStart=/home/pi/viscologic/.venv/bin/python -m viscologic.app
+
+ExecStart=/usr/bin/python3 -m viscologic.app
+
+Restart=always
+RestartSec=2
+
+# Environment variables (optional)
+Environment=PYTHONUNBUFFERED=1
+Environment=VISCLOGIC_ENV=prod
+
+# Nice/limits (optional safety)
+Nice=-5
+LimitNOFILE=4096
+
+# If you need I2C/SPI permissions, ensure user is in i2c/spi groups:
+# sudo usermod -aG i2c,spi,gpio pi
+
+[Install]
+WantedBy=multi-user.target
