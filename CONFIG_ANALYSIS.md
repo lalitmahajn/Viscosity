@@ -1,55 +1,6 @@
 app:
   name: ViscoLogic
   version: 1.0.0
-  ui_enabled: true
-  tick_ms: 100
-  mode: tabletop
-  control_source: local
-  inline_auto_resume: true
-  ui_refresh_ms: 250
-  sample_rate_hz: 200
-mode:
-  default_mode: tabletop
-  default_control_source: local
-  remote_enable: false
-  auto_resume_inline: true
-  comm_loss_action: pause
-safety:
-  max_current_ma: 150.0
-  air_cal_current_ma: 50
-  air_cal_max_sec: 15
-  soft_start_ramp_ms: 800
-  max_temp_c: 80.0
-  max_drive_duty: 0.85
-  soft_start_s: 2.0
-  fault_latch: true
-  fault_reset_requires_ack: true
-sweep:
-  f_min: 150.0
-  f_max: 200.0
-  coarse_step: 1.0
-  fine_step: 0.1
-logging:
-  csv_enabled: true
-  csv_dir: logs/csv
-  retention_days: 30
-modbus:
-  enabled: true
-  host: 0.0.0.0
-  port: 5020
-  unit_id: 1
-  mapping_version: 1
-storage:
-  sqlite_path: data/viscologic.db
-  sqlite:
-    enabled: true
-    path: data/viscologic.db
-  csv_logger:
-    enabled: true
-    auto_start: false
-    folder: logs
-    rotate_daily: true
-    retention_days: 30
   retention:
     db_days: 90
     csv_days: 30
@@ -62,29 +13,46 @@ security:
     allow_reset_by_engineer: true
 hardware:
   i2c_bus: 1
+  i2c_bus: 1   # Raspberry Pi typically uses Bus 1
   spi_bus: 0
   gpio:
     pwm_pin: 18
     enable_pin: 23
     fault_pin: 24
+    pwm_pin: 18        # PIN 12 (GPIO 18) - Hardware PWM 0
+    enable_pin: 23     # Optional Enable Pin
+    fault_pin: 24      # Optional Fault Input Pin
 drivers:
-  adc_type: ads1115
-  drive_type: pwm
+  adc_type: audio
+  drive_type: audio
+  # --- CRITICAL CONFIG ---
+  # For Deployment: Use 'ads1115' and 'pwm' (or any non-audio string)
+  # For Dev/Windows: Use 'audio' (mic/speaker) OR 'mock'.
+  # NOTE: The code defaults to hardware drivers if not set to 'audio'. 
+  #       If hardware is missing, the drivers AUTOMATICALLY switch to mock mode.
+  adc_type: audio      # Options: 'audio' (mic), 'ads1115' (hardware/mock)
+  drive_type: audio    # Options: 'audio' (speaker), 'pwm' (hardware/mock)
   audio:
     rate: 44100
     chunk: 1024
     input_device_index: null
+    input_device_index: null  # null = default mic
     gain: 5.0
     output_device_index: null
+    output_device_index: null # null = default speakers
     output_gain: 0.5
   adc_ads1115:
     enabled: true
     i2c_addr: 72
     gain: 1
+    i2c_addr: 72   # 0x48 = 72 decimal (Addr pin -> GND)
+    gain: 1        # 1 = +/- 4.096V range
     sample_rate_sps: 860
     channel_diff:
     - 0
     - 1
+    - 0  # A0
+    - 1  # A1
     vref: 3.3
     scale: 1.0
   temp_max31865:
@@ -92,12 +60,17 @@ drivers:
     spi_cs: 0
     rtd_nominal: 100.0
     ref_resistor: 430.0
+    spi_cs: 0      # Chip Select 0 (CE0)
+    rtd_nominal: 100.0  # PT100 = 100.0, PT1000 = 1000.0
+    ref_resistor: 430.0 # 430 ohm for PT100, 4300 for PT1000
     wires: 3
     filter_hz: 50
+    filter_hz: 50  # Mains frequency filter (50Hz or 60Hz)
     fault_check_interval_s: 2.0
   drive_pwm:
     enabled: true
     pwm_freq_hz: 20000
+    pwm_freq_hz: 20000  # Carrier frequency (outside audible range)
     duty_min: 0.02
     duty_max: 0.85
     start_duty: 0.15
@@ -146,6 +119,7 @@ protocols:
     enabled: true
     host: 0.0.0.0
     port: 5020
+    port: 5020     # Use 502 for production (requires root)
     unit_id: 1
     update_period_ms: 200
   remote_enable: true

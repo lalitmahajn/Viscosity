@@ -42,7 +42,10 @@ class ADS1115Driver:
     def probe(self) -> Tuple[bool, str]:
         try:
             self._ensure_open()
-            return True, f"ADS1115 OK addr=0x{self.address:02X} gain={self.gain} sps={self.data_rate}"
+            return (
+                True,
+                f"ADS1115 OK addr=0x{self.address:02X} gain={self.gain} sps={self.data_rate}",
+            )
         except Exception as e:
             return False, f"ADS1115 probe error: {e}"
 
@@ -54,13 +57,15 @@ class ADS1115Driver:
         """Close hardware connection. Allows reinitialization."""
         self._ads = None
         self._chan = None
-    
+
     def reinitialize(self) -> Tuple[bool, str]:
         """
         Close current connection and try to reconnect to hardware.
         Returns: (success: bool, message: str)
         """
-        was_mock = self._ads is not None and hasattr(self._ads, 'logger')  # Mock has logger attribute
+        was_mock = self._ads is not None and hasattr(
+            self._ads, "logger"
+        )  # Mock has logger attribute
         self.close()
         try:
             self._ensure_open()
@@ -81,10 +86,10 @@ class ADS1115Driver:
 
         try:
             # --- REAL HARDWARE PATH ---
-            import board # pyright: ignore[reportMissingImports]
-            import busio # pyright: ignore[reportMissingImports]
-            import adafruit_ads1x15.ads1115 as ADS # pyright: ignore[reportMissingImports]
-            from adafruit_ads1x15.analog_in import AnalogIn # pyright: ignore[reportMissingImports]
+            import board  # pyright: ignore[reportMissingImports]
+            import busio  # pyright: ignore[reportMissingImports]
+            import adafruit_ads1x15.ads1115 as ADS  # pyright: ignore[reportMissingImports]
+            from adafruit_ads1x15.analog_in import AnalogIn  # pyright: ignore[reportMissingImports]
 
             i2c = busio.I2C(board.SCL, board.SDA)
 
@@ -101,7 +106,9 @@ class ADS1115Driver:
 
             self.logger.info(
                 "ADS1115 hardware driver initialized addr=0x%02X gain=%s sps=%s",
-                self.address, self.gain, self.data_rate
+                self.address,
+                self.gain,
+                self.data_rate,
             )
 
             self._ads = ads
@@ -117,28 +124,33 @@ class ADS1115Driver:
             class _MockChan:
                 def __init__(self, logger):
                     import time
+
                     self._t = 0.0
                     self.logger = logger
                     self._start_time = time.time()
-                    
+
                     # Simulate resonant sensor behavior
                     self._base_amplitude = 0.8  # Base signal level (V)
-                    self._resonant_freq = 180.0  # Resonant frequency (Hz) - matches typical target
+                    self._resonant_freq = (
+                        180.0  # Resonant frequency (Hz) - matches typical target
+                    )
                     self._q_factor = 50.0  # Quality factor (higher = sharper peak)
                     self._noise_level = 0.02  # RMS noise (V)
                     self._dc_offset = 1.2  # DC offset (V)
-                    
+
                     # Simulate drive state (in real system, this comes from drive driver)
                     # For mock, we simulate typical sweep/lock behavior
                     self._simulated_drive_freq = 180.0  # Simulated drive frequency
                     self._simulated_drive_amp = 0.3  # Simulated drive amplitude
                     self._sweep_phase = 0.0  # For simulating frequency sweep
-                    
+
                 def _update_simulated_drive(self):
                     """Simulate drive frequency behavior (sweep, lock, etc.)"""
-                    import time, math
+                    import time
+                    import math
+
                     elapsed = time.time() - self._start_time
-                    
+
                     # Simulate sweep behavior: starts low, sweeps up, locks at resonance
                     if elapsed < 5.0:
                         # Initial sweep phase: sweeping from 175 to 185 Hz
@@ -149,13 +161,17 @@ class ADS1115Driver:
                         # Locking phase: settling near resonance
                         lock_progress = (elapsed - 5.0) / 5.0
                         # Oscillate slightly around resonance (PLL behavior)
-                        self._simulated_drive_freq = 180.0 + 0.5 * math.sin(elapsed * 2.0) * (1.0 - lock_progress)
+                        self._simulated_drive_freq = 180.0 + 0.5 * math.sin(
+                            elapsed * 2.0
+                        ) * (1.0 - lock_progress)
                         self._simulated_drive_amp = 0.3
                     else:
                         # Locked phase: stable at resonance with small tracking variations
-                        self._simulated_drive_freq = 180.0 + 0.1 * math.sin(elapsed * 0.5)
+                        self._simulated_drive_freq = 180.0 + 0.1 * math.sin(
+                            elapsed * 0.5
+                        )
                         self._simulated_drive_amp = 0.3
-                
+
                 @property
                 def voltage(self):
                     """
@@ -165,43 +181,51 @@ class ADS1115Driver:
                     - Realistic noise characteristics
                     - Responds to simulated drive frequency
                     """
-                    import math, random
+                    import math
+                    import random
+
                     dt = 0.005  # ~200 Hz sample rate
                     self._t += dt
-                    
+
                     # Update simulated drive state
                     self._update_simulated_drive()
-                    
+
                     # Calculate resonance response (Lorentzian-like curve)
                     freq_diff = abs(self._simulated_drive_freq - self._resonant_freq)
                     bandwidth = self._resonant_freq / self._q_factor  # ~3.6 Hz for Q=50
-                    resonance_factor = 1.0 / (1.0 + (freq_diff / bandwidth)**2)
-                    
+                    resonance_factor = 1.0 / (1.0 + (freq_diff / bandwidth) ** 2)
+
                     # Base signal amplitude depends on resonance and drive strength
                     # At resonance: full amplitude, off-resonance: reduced
-                    base_amp = self._base_amplitude * (0.3 + 0.7 * resonance_factor) * self._simulated_drive_amp
-                    
+                    base_amp = (
+                        self._base_amplitude
+                        * (0.3 + 0.7 * resonance_factor)
+                        * self._simulated_drive_amp
+                    )
+
                     # Generate signal at drive frequency (fundamental)
                     phase = 2.0 * math.pi * self._simulated_drive_freq * self._t
                     signal = base_amp * math.sin(phase)
-                    
+
                     # Add harmonics (2nd and 3rd) - typical in real resonant sensors
                     # Harmonics are weaker and phase-shifted
                     signal += 0.12 * base_amp * math.sin(phase * 2.0 + 0.3)
                     signal += 0.04 * base_amp * math.sin(phase * 3.0 + 0.6)
-                    
+
                     # Add low-frequency drift (thermal expansion, mechanical drift)
-                    drift = 0.015 * math.sin(self._t * 0.05) + 0.01 * math.sin(self._t * 0.2)
-                    
+                    drift = 0.015 * math.sin(self._t * 0.05) + 0.01 * math.sin(
+                        self._t * 0.2
+                    )
+
                     # Add realistic noise (Gaussian + occasional spikes)
                     noise = random.gauss(0.0, self._noise_level)
                     # Occasional larger noise spikes (EMI, mechanical)
                     if random.random() < 0.005:  # 0.5% chance of spike
                         noise += random.choice([-1, 1]) * random.uniform(0.03, 0.08)
-                    
+
                     # Total signal: DC offset + signal + drift + noise
                     total = self._dc_offset + signal + drift + noise
-                    
+
                     # Clamp to realistic ADC range (0-3.3V for typical setup)
                     return max(0.0, min(3.3, total))
 
@@ -211,7 +235,6 @@ class ADS1115Driver:
 
             self._ads = _MockAds(self.data_rate)
             self._chan = _MockChan(self.logger)
-
 
     # -----------------------
     # Reading
@@ -223,14 +246,16 @@ class ADS1115Driver:
         """
         self._ensure_open()
         return float(self._chan.voltage)  # type: ignore[union-attr]
-    
+
     def read(self) -> float:
         """
         Alias for read_sample_volts() for compatibility.
         """
         return self.read_sample_volts()
 
-    def read_samples(self, n: Optional[int] = None, sleep_hint: bool = True) -> List[float]:
+    def read_samples(
+        self, n: Optional[int] = None, sleep_hint: bool = True
+    ) -> List[float]:
         """
         Read N samples as fast as possible.
         NOTE: ADS1115 real speed is limited by data_rate.
@@ -249,7 +274,6 @@ class ADS1115Driver:
                 time.sleep(dt * 0.85)
 
         return out
-
 
     def _parse_int(self, v: Any) -> int:
         if isinstance(v, int):
@@ -271,7 +295,7 @@ class ADS1115Driver:
         except Exception:
             gv = 1.0
 
-        valid = [2/3, 1, 2, 4, 8, 16]
+        valid = [2 / 3, 1, 2, 4, 8, 16]
         # choose nearest
         best = valid[0]
         for v in valid:
@@ -286,4 +310,3 @@ class ADS1115Driver:
             if abs(int(sps) - v) < abs(int(sps) - best):
                 best = v
         return best
-

@@ -3,26 +3,71 @@
 
 from __future__ import annotations
 
+import os
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Any, Callable, Dict, Optional
 
 try:
-    from viscologic.ui.ui_styles import COLORS, FONTS, PADDING, get_status_color, get_health_color
+    from viscologic.ui.ui_styles import (
+        COLORS,
+        FONTS,
+        PADDING,
+        get_status_color,
+        get_health_color,
+    )
 except ImportError:
     # Fallback if styles module not available
-    COLORS = {"success": "#27ae60", "warning": "#f39c12", "danger": "#e74c3c", "text_secondary": "#7f8c8d", "primary": "#2c3e50"}
-    FONTS = {"title": ("Segoe UI", 16, "bold"), "heading": ("Segoe UI", 12, "bold"), "body": ("Segoe UI", 10), "large": ("Segoe UI", 32, "bold"), "medium": ("Segoe UI", 22, "bold"), "body_bold": ("Segoe UI", 10, "bold")}
+    COLORS = {
+        "success": "#27ae60",
+        "warning": "#f39c12",
+        "danger": "#e74c3c",
+        "text_secondary": "#7f8c8d",
+        "primary": "#2c3e50",
+    }
+    FONTS = {
+        "title": ("Segoe UI", 16, "bold"),
+        "heading": ("Segoe UI", 12, "bold"),
+        "body": ("Segoe UI", 10),
+        "large": ("Segoe UI", 32, "bold"),
+        "medium": ("Segoe UI", 22, "bold"),
+        "body_bold": ("Segoe UI", 10, "bold"),
+    }
     PADDING = {"large": 12, "medium": 8}
-    def get_status_color(s): return COLORS.get("text_secondary", "#333")
-    def get_health_color(h): return COLORS.get("success" if h >= 80 else "warning" if h >= 60 else "danger", "#333")
+
+    def get_status_color(s):
+        return COLORS.get("text_secondary", "#333")
+
+    def get_health_color(h):
+        return COLORS.get(
+            "success" if h >= 80 else "warning" if h >= 60 else "danger", "#333"
+        )
 except Exception:
-    COLORS = {"success": "#27ae60", "warning": "#f39c12", "danger": "#e74c3c", "text_secondary": "#7f8c8d", "primary": "#2c3e50"}
-    FONTS = {"title": ("Segoe UI", 16, "bold"), "heading": ("Segoe UI", 12, "bold"), "body": ("Segoe UI", 10), "large": ("Segoe UI", 32, "bold"), "medium": ("Segoe UI", 22, "bold"), "body_bold": ("Segoe UI", 10, "bold")}
+    COLORS = {
+        "success": "#27ae60",
+        "warning": "#f39c12",
+        "danger": "#e74c3c",
+        "text_secondary": "#7f8c8d",
+        "primary": "#2c3e50",
+    }
+    FONTS = {
+        "title": ("Segoe UI", 16, "bold"),
+        "heading": ("Segoe UI", 12, "bold"),
+        "body": ("Segoe UI", 10),
+        "large": ("Segoe UI", 32, "bold"),
+        "medium": ("Segoe UI", 22, "bold"),
+        "body_bold": ("Segoe UI", 10, "bold"),
+    }
     PADDING = {"large": 12, "medium": 8}
-    def get_status_color(s): return COLORS.get("text_secondary", "#333")
-    def get_health_color(h): return COLORS.get("success" if h >= 80 else "warning" if h >= 60 else "danger", "#333")
+
+    def get_status_color(s):
+        return COLORS.get("text_secondary", "#333")
+
+    def get_health_color(h):
+        return COLORS.get(
+            "success" if h >= 80 else "warning" if h >= 60 else "danger", "#333"
+        )
 
 
 def now_ms() -> int:
@@ -131,8 +176,8 @@ class OperatorScreen(ttk.Frame):
                     # Try direct get (for ConfigManager)
                     val = self.config_manager.get(key)
                     if val is not None:
-                         return str(val)
-                
+                        return str(val)
+
                 # Fallback: manual dict traversal
                 if isinstance(self.config_manager, dict):
                     parts = key.split(".")
@@ -144,19 +189,22 @@ class OperatorScreen(ttk.Frame):
                             else:
                                 return default
                         return str(curr) if curr is not None else default
-                    except:
+                    except Exception:
                         pass
                 return default
 
-            val = get_cfg("drivers.adc_type").lower()
+            is_audio = False
+            val = get_cfg("drivers.adc_type", "").lower()
             if val == "audio":
                 is_audio = True
+        else:
+            is_audio = False
 
         if is_audio:
             title += " (AUDIO)"
         elif os.environ.get("MOCK_MODE", "1") == "1":
             title += " (SIMULATION)"
-        
+
         lbl_title = ttk.Label(top, text=title, style="HeaderTitle.TLabel")
         lbl_title.grid(row=0, column=0, sticky="w")
 
@@ -164,15 +212,25 @@ class OperatorScreen(ttk.Frame):
         right = ttk.Frame(top, style="Header.TFrame")
         right.grid(row=0, column=1, sticky="e")
 
-        ttk.Label(right, text="Mode:", style="Header.TLabel").grid(row=0, column=0, padx=(0, 6), sticky="e")
-        self.lbl_mode = ttk.Label(right, textvariable=self.var_mode, style="Header.TLabel")
+        ttk.Label(right, text="Mode:", style="Header.TLabel").grid(
+            row=0, column=0, padx=(0, 6), sticky="e"
+        )
+        self.lbl_mode = ttk.Label(
+            right, textvariable=self.var_mode, style="Header.TLabel"
+        )
         self.lbl_mode.grid(row=0, column=1, padx=(0, 12), sticky="e")
 
-        ttk.Label(right, text="Control:", style="Header.TLabel").grid(row=0, column=2, padx=(0, 6), sticky="e")
-        self.lbl_source = ttk.Label(right, textvariable=self.var_source, style="Header.TLabel")
+        ttk.Label(right, text="Control:", style="Header.TLabel").grid(
+            row=0, column=2, padx=(0, 6), sticky="e"
+        )
+        self.lbl_source = ttk.Label(
+            right, textvariable=self.var_source, style="Header.TLabel"
+        )
         self.lbl_source.grid(row=0, column=3, padx=(0, 12), sticky="e")
 
-        btn_eng = ttk.Button(right, text="Engineer", command=self._on_engineer, style="Blue.TButton")
+        btn_eng = ttk.Button(
+            right, text="Engineer", command=self._on_engineer, style="Blue.TButton"
+        )
         btn_eng.grid(row=0, column=4, sticky="e", padx=(12, 0))
 
         # Main readings
@@ -187,23 +245,35 @@ class OperatorScreen(ttk.Frame):
         visc_card.grid(row=0, column=0, sticky="ew", padx=(0, 10), pady=0)
         visc_card.columnconfigure(0, weight=1)
 
-        ttk.Label(visc_card, text="Viscosity (cP)", style="CardSecondary.TLabel").grid(row=0, column=0, sticky="w")
-        self.lbl_visc = ttk.Label(visc_card, textvariable=self.var_visc, style="Value.TLabel")
+        ttk.Label(visc_card, text="Viscosity (cP)", style="CardSecondary.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.lbl_visc = ttk.Label(
+            visc_card, textvariable=self.var_visc, style="Value.TLabel"
+        )
         self.lbl_visc.grid(row=1, column=0, sticky="w", pady=(10, 0))
 
         # Temperature card
         temp_card = ttk.Frame(main, style="Card.TFrame", padding=15)
         temp_card.grid(row=0, column=1, sticky="ew", padx=(0, 10), pady=0)
         temp_card.columnconfigure(0, weight=1)
-        ttk.Label(temp_card, text="Temperature (°C)", style="CardSecondary.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(temp_card, textvariable=self.var_temp, style="ValueMedium.TLabel").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(
+            temp_card, text="Temperature (°C)", style="CardSecondary.TLabel"
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            temp_card, textvariable=self.var_temp, style="ValueMedium.TLabel"
+        ).grid(row=1, column=0, sticky="w", pady=(10, 0))
 
         # Frequency card
         freq_card = ttk.Frame(main, style="Card.TFrame", padding=15)
         freq_card.grid(row=0, column=2, sticky="ew", pady=0)
         freq_card.columnconfigure(0, weight=1)
-        ttk.Label(freq_card, text="Frequency (Hz)", style="CardSecondary.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(freq_card, textvariable=self.var_freq, style="ValueMedium.TLabel").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(freq_card, text="Frequency (Hz)", style="CardSecondary.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        ttk.Label(
+            freq_card, textvariable=self.var_freq, style="ValueMedium.TLabel"
+        ).grid(row=1, column=0, sticky="w", pady=(10, 0))
 
         # Status + health
         mid = ttk.Frame(self)
@@ -215,30 +285,46 @@ class OperatorScreen(ttk.Frame):
         status_card.grid(row=0, column=0, sticky="ew", pady=0)
         status_card.columnconfigure(1, weight=1)
 
-        ttk.Label(status_card, text="Status:", style="Card.TLabel").grid(row=0, column=0, sticky="w")
-        self.lbl_status = ttk.Label(status_card, textvariable=self.var_status, style="Card.TLabel",
-                                   font=("Segoe UI", 10, "bold"))
+        ttk.Label(status_card, text="Status:", style="Card.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.lbl_status = ttk.Label(
+            status_card,
+            textvariable=self.var_status,
+            style="Card.TLabel",
+            font=("Segoe UI", 10, "bold"),
+        )
         self.lbl_status.grid(row=0, column=1, sticky="w", padx=(10, 0))
 
-        ttk.Label(status_card, textvariable=self.var_conf_text, style="Card.TLabel").grid(
-            row=1, column=0, sticky="w", pady=(10, 0)
-        )
-        ttk.Label(status_card, textvariable=self.var_health_text, style="Card.TLabel").grid(
-            row=1, column=1, sticky="w", padx=(10, 0), pady=(10, 0)
-        )
+        ttk.Label(
+            status_card, textvariable=self.var_conf_text, style="Card.TLabel"
+        ).grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(
+            status_card, textvariable=self.var_health_text, style="Card.TLabel"
+        ).grid(row=1, column=1, sticky="w", padx=(10, 0), pady=(10, 0))
 
         # Health progressbar
         try:
-            self.pb_health = ttk.Progressbar(status_card, orient="horizontal", mode="determinate", maximum=100,
-                                             style="Health.TProgressbar")
+            self.pb_health = ttk.Progressbar(
+                status_card,
+                orient="horizontal",
+                mode="determinate",
+                maximum=100,
+                style="Health.TProgressbar",
+            )
         except Exception:
-            self.pb_health = ttk.Progressbar(status_card, orient="horizontal", mode="determinate", maximum=100)
+            self.pb_health = ttk.Progressbar(
+                status_card, orient="horizontal", mode="determinate", maximum=100
+            )
         self.pb_health.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
 
         # Error message
-        self.lbl_error = ttk.Label(mid, textvariable=self.var_last_error, 
-                                  foreground="#C0392B",
-                                  font=("Segoe UI", 10))
+        self.lbl_error = ttk.Label(
+            mid,
+            textvariable=self.var_last_error,
+            foreground="#C0392B",
+            font=("Segoe UI", 10),
+        )
         self.lbl_error.grid(row=3, column=0, sticky="w", pady=(8, 0))
 
         # Controls
@@ -248,23 +334,35 @@ class OperatorScreen(ttk.Frame):
             ctrl.columnconfigure(i, weight=1)
 
         # Buttons with theme styles
-        self.btn_run = ttk.Button(ctrl, textvariable=self.var_run_text, command=self._on_run_toggle,
-                                 style="Green.TButton")
+        self.btn_run = ttk.Button(
+            ctrl,
+            textvariable=self.var_run_text,
+            command=self._on_run_toggle,
+            style="Green.TButton",
+        )
         self.btn_run.grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
-        self.btn_stop = ttk.Button(ctrl, text="Stop", command=self._on_stop, style="Red.TButton")
+        self.btn_stop = ttk.Button(
+            ctrl, text="Stop", command=self._on_stop, style="Red.TButton"
+        )
         self.btn_stop.grid(row=0, column=1, sticky="ew", padx=(0, 8))
 
-        self.btn_log = ttk.Button(ctrl, textvariable=self.var_log_text, command=self._on_log_toggle)
+        self.btn_log = ttk.Button(
+            ctrl, textvariable=self.var_log_text, command=self._on_log_toggle
+        )
         self.btn_log.grid(row=0, column=2, sticky="ew", padx=(0, 8))
 
         self.btn_export = ttk.Button(ctrl, text="Export", command=self._on_export)
         self.btn_export.grid(row=0, column=3, sticky="ew", padx=(0, 8))
 
-        self.btn_alarms = ttk.Button(ctrl, text="Alarm Details", command=self._on_alarms)
+        self.btn_alarms = ttk.Button(
+            ctrl, text="Alarm Details", command=self._on_alarms
+        )
         self.btn_alarms.grid(row=0, column=4, sticky="ew", padx=(0, 8))
 
-        self.btn_cal = ttk.Button(ctrl, text="Calibration", command=self._on_calibration)
+        self.btn_cal = ttk.Button(
+            ctrl, text="Calibration", command=self._on_calibration
+        )
         self.btn_cal.grid(row=0, column=5, sticky="ew")
 
     # ---------------- Event bus wiring ----------------
@@ -313,7 +411,7 @@ class OperatorScreen(ttk.Frame):
         if self.event_bus:
             # Check for standard 'latest_frame'
             fresh_frame = getattr(self.event_bus, "latest_frame", None)
-            
+
             # If not found, try method
             if fresh_frame is None and hasattr(self.event_bus, "get_latest_frame"):
                 try:
@@ -327,7 +425,7 @@ class OperatorScreen(ttk.Frame):
             else:
                 pass
                 # print("[DEBUG UI] No fresh frame found on bus.")
-        
+
         # 2. Schedule next update
         self.after(250, self._poll_update)
 
@@ -368,28 +466,36 @@ class OperatorScreen(ttk.Frame):
         #     health = 90
         # -------------- END TEMP TEST BLOCK --------------
 
-        mode = str(frame.get("mode", self.var_mode.get()) or self.var_mode.get()).lower()
+        mode = str(
+            frame.get("mode", self.var_mode.get()) or self.var_mode.get()
+        ).lower()
         if mode not in ("tabletop", "inline"):
             mode = "tabletop"
 
-        src = str(frame.get("control_source", self.var_source.get()) or self.var_source.get()).lower()
+        src = str(
+            frame.get("control_source", self.var_source.get()) or self.var_source.get()
+        ).lower()
         if src not in ("local", "remote", "mixed"):
             src = "local"
 
         self.var_visc.set(_fmt_cp(_safe_float(cp, 0.0)))
         self.var_temp.set(_fmt_temp(temp if isinstance(temp, (int, float)) else None))
-        self.var_freq.set(f"{_safe_float(freq, 0.0):.2f}" if isinstance(freq, (int, float)) else "---.-")
+        self.var_freq.set(
+            f"{_safe_float(freq, 0.0):.2f}"
+            if isinstance(freq, (int, float))
+            else "---.-"
+        )
 
         self.var_status.set(str(status))
         self.var_conf_text.set(f"Confidence: {max(0, min(100, conf))}%")
         self.var_health.set(max(0, min(100, health)))
         self.var_health_text.set(f"Health: {max(0, min(100, health))}%")
         self.pb_health["value"] = max(0, min(100, health))
-        
+
         # Color code status label
         status_color = get_status_color(status)
         self.lbl_status.config(foreground=status_color)
-        
+
         # Color code health progress bar
         health_val = max(0, min(100, health))
         health_color = get_health_color(health_val)
@@ -431,7 +537,9 @@ class OperatorScreen(ttk.Frame):
             self.btn_stop.state(["!disabled"])
         else:
             # Tabletop: Start button disabled if already running
-            self.btn_run.state(["!disabled"] if (start_allowed and not running) else ["disabled"])
+            self.btn_run.state(
+                ["!disabled"] if (start_allowed and not running) else ["disabled"]
+            )
             self.btn_stop.state(["!disabled"])
 
         self.btn_log.state(["!disabled"])
@@ -457,7 +565,9 @@ class OperatorScreen(ttk.Frame):
 
     def _on_run_toggle(self) -> None:
         mode = self.var_mode.get().lower()
-        running = bool(self._last_frame.get("running", self._last_frame.get("enabled", False)))
+        running = bool(
+            self._last_frame.get("running", self._last_frame.get("enabled", False))
+        )
 
         if mode == "inline":
             if running:

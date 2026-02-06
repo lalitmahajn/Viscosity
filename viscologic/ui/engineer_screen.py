@@ -20,19 +20,61 @@ from tkinter import ttk, messagebox
 from typing import Any, Dict, Optional
 
 try:
-    from viscologic.ui.ui_styles import COLORS, FONTS, PADDING, get_status_color, get_health_color
+    from viscologic.ui.ui_styles import (
+        COLORS,
+        FONTS,
+        PADDING,
+        get_status_color,
+        get_health_color,
+    )
 except ImportError:
-    COLORS = {"success": "#27ae60", "warning": "#f39c12", "danger": "#e74c3c", "text_secondary": "#7f8c8d", "primary": "#2c3e50"}
-    FONTS = {"title": ("Segoe UI", 16, "bold"), "heading": ("Segoe UI", 12, "bold"), "body": ("Segoe UI", 10), "body_bold": ("Segoe UI", 10, "bold"), "subtitle": ("Segoe UI", 14, "bold")}
+    COLORS = {
+        "success": "#27ae60",
+        "warning": "#f39c12",
+        "danger": "#e74c3c",
+        "text_secondary": "#7f8c8d",
+        "primary": "#2c3e50",
+    }
+    FONTS = {
+        "title": ("Segoe UI", 16, "bold"),
+        "heading": ("Segoe UI", 12, "bold"),
+        "body": ("Segoe UI", 10),
+        "body_bold": ("Segoe UI", 10, "bold"),
+        "subtitle": ("Segoe UI", 14, "bold"),
+    }
     PADDING = {"large": 12, "medium": 8}
-    def get_status_color(s): return COLORS.get("text_secondary", "#333")
-    def get_health_color(h): return COLORS.get("success" if h >= 80 else "warning" if h >= 60 else "danger", "#333")
-except Exception as e:
-    COLORS = {"success": "#27ae60", "warning": "#f39c12", "danger": "#e74c3c", "text_secondary": "#7f8c8d", "primary": "#2c3e50"}
-    FONTS = {"title": ("Segoe UI", 16, "bold"), "heading": ("Segoe UI", 12, "bold"), "body": ("Segoe UI", 10), "body_bold": ("Segoe UI", 10, "bold"), "subtitle": ("Segoe UI", 14, "bold")}
+
+    def get_status_color(s):
+        return COLORS.get("text_secondary", "#333")
+
+    def get_health_color(h):
+        return COLORS.get(
+            "success" if h >= 80 else "warning" if h >= 60 else "danger", "#333"
+        )
+except Exception:
+    COLORS = {
+        "success": "#27ae60",
+        "warning": "#f39c12",
+        "danger": "#e74c3c",
+        "text_secondary": "#7f8c8d",
+        "primary": "#2c3e50",
+    }
+    FONTS = {
+        "title": ("Segoe UI", 16, "bold"),
+        "heading": ("Segoe UI", 12, "bold"),
+        "body": ("Segoe UI", 10),
+        "body_bold": ("Segoe UI", 10, "bold"),
+        "subtitle": ("Segoe UI", 14, "bold"),
+    }
     PADDING = {"large": 12, "medium": 8}
-    def get_status_color(s): return COLORS.get("text_secondary", "#333")
-    def get_health_color(h): return COLORS.get("success" if h >= 80 else "warning" if h >= 60 else "danger", "#333")
+
+    def get_status_color(s):
+        return COLORS.get("text_secondary", "#333")
+
+    def get_health_color(h):
+        return COLORS.get(
+            "success" if h >= 80 else "warning" if h >= 60 else "danger", "#333"
+        )
 
 
 def now_ms() -> int:
@@ -63,12 +105,12 @@ class EngineerScreen(ttk.Frame):
         auth_engineer: Optional[Any] = None,
         commissioning_manager: Optional[Any] = None,
         event_bus: Optional[Any] = None,
-        navigate_callback: Optional[Any] = None, # <--- 1. Add this argument
+        navigate_callback: Optional[Any] = None,  # <--- 1. Add this argument
         title: str = "Engineer Mode",
     ) -> None:
         super().__init__(parent)
 
-        self.nav_cb = navigate_callback          # <--- 2. Store it
+        self.nav_cb = navigate_callback  # <--- 2. Store it
         # Wrap dict config in ConfigManager if needed
         self.cfg = self._wrap_config(config_manager)
         self.auth = auth_engineer
@@ -97,11 +139,14 @@ class EngineerScreen(ttk.Frame):
         self.var_lock_msg = tk.StringVar(value="Enter engineer password.")
 
         # Settings vars
-        self.var_mode = tk.StringVar(value="tabletop")              # tabletop / inline
-        self.var_control = tk.StringVar(value="local")              # local / remote / mixed
+        self.var_mode = tk.StringVar(value="Tabletop")  # Tabletop / Inline
+        self.var_control = tk.StringVar(value="local")  # local / remote / mixed
         self.var_remote_enable = tk.BooleanVar(value=True)
-        self.var_comm_loss = tk.StringVar(value="safe_stop")        # safe_stop / hold_last / pause
+        self.var_comm_loss = tk.StringVar(value="safe_stop")
         self.var_inline_auto_resume = tk.BooleanVar(value=True)
+
+        self.var_health_enable = tk.BooleanVar(value=True)
+        self.var_min_conf = tk.StringVar(value="60.0")
 
         self.var_max_current_ma = tk.StringVar(value="150")
         self.var_max_temp_c = tk.StringVar(value="80")
@@ -115,6 +160,19 @@ class EngineerScreen(ttk.Frame):
         self.var_old_pwd = tk.StringVar(value="")
         self.var_new_pwd = tk.StringVar(value="")
         self.var_new_pwd2 = tk.StringVar(value="")
+
+        # Diagnostic variables (for card-based UI)
+        self.var_diag_ts = tk.StringVar(value="--")
+        self.var_diag_mag = tk.StringVar(value="--")
+        self.var_diag_phase = tk.StringVar(value="--")
+        self.var_diag_adc = tk.StringVar(value="--")
+        self.var_diag_duty = tk.StringVar(value="--")
+        self.var_diag_remote = tk.StringVar(value="False")
+        self.var_diag_src = tk.StringVar(value="unknown")
+        self.var_diag_profile = tk.StringVar(value="Default")
+        self.var_diag_fault_reason = tk.StringVar(value="None")
+        self.var_diag_health_ok = tk.StringVar(value="False")
+        self.var_diag_alarm = tk.StringVar(value="False")
 
         self._build_ui()
         self._hook_bus()
@@ -139,16 +197,25 @@ class EngineerScreen(ttk.Frame):
         self.lock_view.grid(row=0, column=0, sticky="nsew")
         self.lock_view.columnconfigure(0, weight=1)
 
-        ttk.Label(self.lock_view, textvariable=self.var_title, style="Card.TLabel", 
-                 font=("Segoe UI", 18, "bold")).grid(row=0, column=0, sticky="w")
-        ttk.Label(self.lock_view, text="Engineer settings are protected. This is only for authorized users.",
-                 style="CardSecondary.TLabel").grid(row=1, column=0, sticky="w", pady=(12, 20))
+        ttk.Label(
+            self.lock_view,
+            textvariable=self.var_title,
+            style="Card.TLabel",
+            font=("Segoe UI", 18, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            self.lock_view,
+            text="Engineer settings are protected. This is only for authorized users.",
+            style="CardSecondary.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(12, 20))
 
         frm = ttk.Frame(self.lock_view)
         frm.grid(row=2, column=0, sticky="ew")
         frm.columnconfigure(1, weight=1)
 
-        ttk.Label(frm, text="Password:", style="Card.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(frm, text="Password:", style="Card.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
         self.ent_pwd = ttk.Entry(frm, textvariable=self.var_pwd, show="•")
         self.ent_pwd.grid(row=0, column=1, sticky="ew", padx=(12, 0))
         self.ent_pwd.bind("<Return>", lambda _e: self._unlock())
@@ -156,11 +223,22 @@ class EngineerScreen(ttk.Frame):
         btns = ttk.Frame(self.lock_view)
         btns.grid(row=3, column=0, sticky="w", pady=(18, 0))
 
-        ttk.Button(btns, text="Unlock", command=self._unlock, style="Green.TButton").grid(row=0, column=0, padx=(0, 10))
-        ttk.Button(btns, text="Back to Operator", command=lambda: self._navigate("operator"), style="Blue.TButton").grid(row=0, column=1)
+        ttk.Button(
+            btns, text="Unlock", command=self._unlock, style="Green.TButton"
+        ).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(
+            btns,
+            text="Back to Operator",
+            command=lambda: self._navigate("operator"),
+            style="Blue.TButton",
+        ).grid(row=0, column=1)
 
-        ttk.Label(self.lock_view, textvariable=self.var_lock_msg, foreground="#C0392B", 
-                 font=("Segoe UI", 10)).grid(row=4, column=0, sticky="w", pady=(16, 0))
+        ttk.Label(
+            self.lock_view,
+            textvariable=self.var_lock_msg,
+            foreground="#C0392B",
+            font=("Segoe UI", 10),
+        ).grid(row=4, column=0, sticky="w", pady=(16, 0))
 
         # Unlocked view
         self.main_view = ttk.Frame(self.container, padding=(12, 12, 12, 12))
@@ -173,15 +251,19 @@ class EngineerScreen(ttk.Frame):
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
 
-        ttk.Label(header, textvariable=self.var_title, font=("Segoe UI", 16, "bold")).grid(
-            row=0, column=0, sticky="w"
-        )
+        ttk.Label(
+            header, textvariable=self.var_title, font=("Segoe UI", 16, "bold")
+        ).grid(row=0, column=0, sticky="w")
 
         hbtn = ttk.Frame(header)
         hbtn.grid(row=0, column=1, sticky="e")
 
-        ttk.Button(hbtn, text="Operator", command=lambda: self._navigate("operator")).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(hbtn, text="Alarms", command=lambda: self._navigate("alarms")).grid(row=0, column=1, padx=(0, 8))
+        ttk.Button(
+            hbtn, text="Operator", command=lambda: self._navigate("operator")
+        ).grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(hbtn, text="Alarms", command=lambda: self._navigate("alarms")).grid(
+            row=0, column=1, padx=(0, 8)
+        )
         ttk.Button(hbtn, text="Lock", command=self._lock).grid(row=0, column=2)
 
         ttk.Label(header, textvariable=self.var_status, style="Header.TLabel").grid(
@@ -248,8 +330,15 @@ class EngineerScreen(ttk.Frame):
         card.columnconfigure(1, weight=1)
 
         def row(r: int, label: str, var: tk.StringVar) -> None:
-            ttk.Label(card, text=label, style="CardSecondary.TLabel").grid(row=r, column=0, sticky="w", pady=(8, 0))
-            ttk.Label(card, textvariable=var, style="Card.TLabel", font=("Segoe UI", 10, "bold")).grid(row=r, column=1, sticky="w", pady=(8, 0))
+            ttk.Label(card, text=label, style="CardSecondary.TLabel").grid(
+                row=r, column=0, sticky="w", pady=(8, 0)
+            )
+            ttk.Label(
+                card,
+                textvariable=var,
+                style="Card.TLabel",
+                font=("Segoe UI", 10, "bold"),
+            ).grid(row=r, column=1, sticky="w", pady=(8, 0))
 
         row(0, "Viscosity (cP):", self.var_visc)
         row(1, "Temperature (°C):", self.var_temp)
@@ -262,21 +351,45 @@ class EngineerScreen(ttk.Frame):
         act = ttk.Frame(f, style="Card.TFrame", padding=15)
         act.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
 
-        ttk.Label(act, text="Quick Actions", style="Card.TLabel", font=("Segoe UI", 12, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            act,
+            text="Quick Actions",
+            style="Card.TLabel",
+            font=("Segoe UI", 12, "bold"),
+        ).grid(row=0, column=0, sticky="w")
 
         btns = ttk.Frame(act)
         btns.grid(row=1, column=0, sticky="w", pady=(12, 0))
 
-        ttk.Button(btns, text="START", command=lambda: self._send_cmd("START"), style="Green.TButton").grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(btns, text="STOP", command=lambda: self._send_cmd("STOP"), style="Red.TButton").grid(row=0, column=1, padx=(0, 8))
-        ttk.Button(btns, text="ALARM ACK", command=lambda: self._send_cmd("ALARM_ACK")).grid(row=0, column=2, padx=(0, 8))
-        ttk.Button(btns, text="ALARM RESET", command=lambda: self._send_cmd("ALARM_RESET"), style="Red.TButton").grid(row=0, column=3)
+        ttk.Button(
+            btns,
+            text="START",
+            command=lambda: self._send_cmd("START"),
+            style="Green.TButton",
+        ).grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(
+            btns,
+            text="STOP",
+            command=lambda: self._send_cmd("STOP"),
+            style="Red.TButton",
+        ).grid(row=0, column=1, padx=(0, 8))
+        ttk.Button(
+            btns, text="ALARM ACK", command=lambda: self._send_cmd("ALARM_ACK")
+        ).grid(row=0, column=2, padx=(0, 8))
+        ttk.Button(
+            btns,
+            text="ALARM RESET",
+            command=lambda: self._send_cmd("ALARM_RESET"),
+            style="Red.TButton",
+        ).grid(row=0, column=3)
 
         note = (
             "Rule: STOP always overrides START.\n"
             "During commissioning, START may be blocked by Safety Manager."
         )
-        ttk.Label(act, text=note, style="CardSecondary.TLabel").grid(row=2, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(act, text=note, style="CardSecondary.TLabel").grid(
+            row=2, column=0, sticky="w", pady=(10, 0)
+        )
 
     def _build_tab_settings(self) -> None:
         f = self.tab_settings
@@ -286,59 +399,133 @@ class EngineerScreen(ttk.Frame):
         card.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         card.columnconfigure(1, weight=1)
 
-        ttk.Label(card, text="Core Settings", font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(card, text="Core Settings", font=("Segoe UI", 11, "bold")).grid(
+            row=0, column=0, sticky="w"
+        )
 
-        # Mode / control
+        # Orientation / control
         ttk.Label(card, text="Mode:").grid(row=1, column=0, sticky="w", pady=(10, 0))
-        cbo_mode = ttk.Combobox(card, textvariable=self.var_mode, values=["tabletop", "inline"], state="readonly", width=18)
+        cbo_mode = ttk.Combobox(
+            card,
+            textvariable=self.var_mode,
+            values=["Tabletop", "Inline"],
+            state="readonly",
+            width=18,
+        )
         cbo_mode.grid(row=1, column=1, sticky="w", pady=(10, 0))
 
-        ttk.Label(card, text="Control Source:").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        cbo_ctrl = ttk.Combobox(card, textvariable=self.var_control, values=["local", "remote", "mixed"], state="readonly", width=18)
+        ttk.Label(card, text="Control Source:").grid(
+            row=2, column=0, sticky="w", pady=(8, 0)
+        )
+        cbo_ctrl = ttk.Combobox(
+            card,
+            textvariable=self.var_control,
+            values=["local", "remote", "mixed"],
+            state="readonly",
+            width=18,
+        )
         cbo_ctrl.grid(row=2, column=1, sticky="w", pady=(8, 0))
 
-        ttk.Checkbutton(card, text="PLC Remote Enable", variable=self.var_remote_enable).grid(
-            row=3, column=0, columnspan=2, sticky="w", pady=(8, 0)
-        )
+        ttk.Checkbutton(
+            card, text="PLC Remote Enable", variable=self.var_remote_enable
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
-        ttk.Label(card, text="Comm-loss Action:").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        cbo_loss = ttk.Combobox(card, textvariable=self.var_comm_loss, values=["safe_stop", "hold_last", "pause"], state="readonly", width=18)
+        ttk.Label(card, text="Comm-loss Action:").grid(
+            row=4, column=0, sticky="w", pady=(8, 0)
+        )
+        cbo_loss = ttk.Combobox(
+            card,
+            textvariable=self.var_comm_loss,
+            values=["safe_stop", "hold_last", "pause"],
+            state="readonly",
+            width=18,
+        )
         cbo_loss.grid(row=4, column=1, sticky="w", pady=(8, 0))
 
-        ttk.Checkbutton(card, text="Inline Auto-Resume (after reboot)", variable=self.var_inline_auto_resume).grid(
-            row=5, column=0, columnspan=2, sticky="w", pady=(8, 0)
-        )
+        ttk.Checkbutton(
+            card,
+            text="Inline Auto-Resume (after reboot)",
+            variable=self.var_inline_auto_resume,
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         # Safety
         ttk.Separator(card).grid(row=6, column=0, columnspan=2, sticky="ew", pady=12)
-        ttk.Label(card, text="Safety Limits", font=("Segoe UI", 11, "bold")).grid(row=7, column=0, sticky="w")
+        ttk.Label(card, text="Safety Limits", font=("Segoe UI", 11, "bold")).grid(
+            row=7, column=0, sticky="w"
+        )
 
-        ttk.Label(card, text="Max Current (mA):").grid(row=8, column=0, sticky="w", pady=(10, 0))
-        ttk.Entry(card, textvariable=self.var_max_current_ma, width=14).grid(row=8, column=1, sticky="w", pady=(10, 0))
+        ttk.Label(card, text="Max Current (mA):").grid(
+            row=8, column=0, sticky="w", pady=(10, 0)
+        )
+        ttk.Entry(card, textvariable=self.var_max_current_ma, width=14).grid(
+            row=8, column=1, sticky="w", pady=(10, 0)
+        )
 
-        ttk.Label(card, text="Max Temp (°C):").grid(row=9, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(card, textvariable=self.var_max_temp_c, width=14).grid(row=9, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Max Temp (°C):").grid(
+            row=9, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Entry(card, textvariable=self.var_max_temp_c, width=14).grid(
+            row=9, column=1, sticky="w", pady=(8, 0)
+        )
 
         # DSP / sweep
         ttk.Separator(card).grid(row=10, column=0, columnspan=2, sticky="ew", pady=12)
-        ttk.Label(card, text="Signal / Lock Settings", font=("Segoe UI", 11, "bold")).grid(row=11, column=0, sticky="w")
+        ttk.Label(
+            card, text="Signal / Lock Settings", font=("Segoe UI", 11, "bold")
+        ).grid(row=11, column=0, sticky="w")
 
-        ttk.Label(card, text="Target Freq (Hz):").grid(row=12, column=0, sticky="w", pady=(10, 0))
-        ttk.Entry(card, textvariable=self.var_target_freq_hz, width=14).grid(row=12, column=1, sticky="w", pady=(10, 0))
+        ttk.Label(card, text="Target Freq (Hz):").grid(
+            row=12, column=0, sticky="w", pady=(10, 0)
+        )
+        ttk.Entry(card, textvariable=self.var_target_freq_hz, width=14).grid(
+            row=12, column=1, sticky="w", pady=(10, 0)
+        )
 
-        ttk.Label(card, text="Sweep Span (Hz):").grid(row=13, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(card, textvariable=self.var_sweep_span_hz, width=14).grid(row=13, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Sweep Span (Hz):").grid(
+            row=13, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Entry(card, textvariable=self.var_sweep_span_hz, width=14).grid(
+            row=13, column=1, sticky="w", pady=(8, 0)
+        )
 
-        ttk.Label(card, text="Sweep Step (Hz):").grid(row=14, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(card, textvariable=self.var_sweep_step_hz, width=14).grid(row=14, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Sweep Step (Hz):").grid(
+            row=14, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Entry(card, textvariable=self.var_sweep_step_hz, width=14).grid(
+            row=14, column=1, sticky="w", pady=(8, 0)
+        )
 
-        ttk.Label(card, text="Lock-in Tau (s):").grid(row=15, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(card, textvariable=self.var_lockin_tau_s, width=14).grid(row=15, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(card, text="Lock-in Tau (s):").grid(
+            row=15, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Entry(card, textvariable=self.var_lockin_tau_s, width=14).grid(
+            row=15, column=1, sticky="w", pady=(8, 0)
+        )
+
+        # Health & Stability
+        ttk.Separator(card).grid(row=16, column=0, columnspan=2, sticky="ew", pady=12)
+        ttk.Label(card, text="Health & Stability", font=("Segoe UI", 11, "bold")).grid(
+            row=17, column=0, sticky="w"
+        )
+        ttk.Checkbutton(
+            card, text="Enable Health Monitoring", variable=self.var_health_enable
+        ).grid(row=18, column=0, columnspan=2, sticky="w", pady=(10, 0))
+
+        ttk.Label(card, text="Min Confidence (%):").grid(
+            row=19, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Entry(card, textvariable=self.var_min_conf, width=14).grid(
+            row=19, column=1, sticky="w", pady=(8, 0)
+        )
 
         btns = ttk.Frame(card)
-        btns.grid(row=16, column=0, columnspan=2, sticky="w", pady=(14, 0))
-        ttk.Button(btns, text="Reload", command=self._load_from_config).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(btns, text="Save", command=self._save_to_config).grid(row=0, column=1)
+        btns.grid(row=20, column=0, columnspan=2, sticky="w", pady=(14, 0))
+        ttk.Button(btns, text="Reload", command=self._load_from_config).grid(
+            row=0, column=0, padx=(0, 8)
+        )
+        ttk.Button(btns, text="Save", command=self._save_to_config).grid(
+            row=0, column=1
+        )
 
         ttk.Label(
             card,
@@ -354,7 +541,9 @@ class EngineerScreen(ttk.Frame):
         box.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         box.columnconfigure(0, weight=1)
 
-        ttk.Label(box, text="Calibration", font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(box, text="Calibration", font=("Segoe UI", 11, "bold")).grid(
+            row=0, column=0, sticky="w"
+        )
         ttk.Label(
             box,
             text="Use calibration wizard to add unlimited points (Air/Water/Std Oils/Custom).",
@@ -364,31 +553,127 @@ class EngineerScreen(ttk.Frame):
         btns = ttk.Frame(box)
         btns.grid(row=2, column=0, sticky="w", pady=(12, 0))
 
-        ttk.Button(btns, text="Open Calibration Wizard", command=lambda: self._navigate("calibration")).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(btns, text="Open Operator Screen", command=lambda: self._navigate("operator")).grid(row=0, column=1)
+        ttk.Button(
+            btns,
+            text="Open Calibration Wizard",
+            command=lambda: self._navigate("calibration"),
+        ).grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(
+            btns,
+            text="Open Operator Screen",
+            command=lambda: self._navigate("operator"),
+        ).grid(row=0, column=1)
 
     def _build_tab_diag(self) -> None:
         f = self.tab_diag
         f.columnconfigure(0, weight=1)
-        f.rowconfigure(1, weight=1)
+        f.columnconfigure(1, weight=1)
 
+        # 1. Header Card
         head = ttk.Frame(f, style="Card.TFrame", padding=15)
-        head.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        head.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
         head.columnconfigure(0, weight=1)
 
-        ttk.Label(head, text="Diagnostics", style="Card.TLabel", font=("Segoe UI", 12, "bold")).grid(row=0, column=0, sticky="w")
-        ttk.Label(head, text="Live system view for troubleshooting.", style="CardSecondary.TLabel").grid(
-            row=1, column=0, sticky="w", pady=(6, 0)
+        ttk.Label(
+            head,
+            text="Live Diagnostics",
+            style="Card.TLabel",
+            font=("Segoe UI", 12, "bold"),
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            head,
+            text="Real-time sensor and system health monitoring.",
+            style="CardSecondary.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+
+        ttk.Button(
+            head, text="Export Diagnostics", command=self._export_diagnostics
+        ).grid(row=0, column=1, rowspan=2, sticky="e")
+
+        def create_diag_card(parent, row_idx, col_idx, title, items):
+            card = ttk.Frame(parent, style="Card.TFrame", padding=PADDING["large"])
+            card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=10, pady=5)
+            card.columnconfigure(1, weight=1)
+
+            ttk.Label(card, text=title, font=FONTS["heading"]).grid(
+                row=0, column=0, columnspan=2, sticky="w", pady=(0, 10)
+            )
+
+            for r, (label, var) in enumerate(items, 1):
+                ttk.Label(card, text=label, style="CardSecondary.TLabel").grid(
+                    row=r, column=0, sticky="w", pady=4
+                )
+                ttk.Label(card, textvariable=var, font=FONTS["body_bold"]).grid(
+                    row=r, column=1, sticky="e", pady=4
+                )
+            return card
+
+        # Card 1: System State
+        create_diag_card(
+            f,
+            1,
+            0,
+            "System State",
+            [
+                ("State:", self.var_status),
+                ("Mode:", self.var_mode),
+                ("Ctrl Source:", self.var_control),
+                (
+                    "Locked:",
+                    self.var_diag_health_ok,
+                ),  # Reusing health_ok for a bit of logic later
+                (
+                    "Fault Active:",
+                    self.var_diag_fault_reason,
+                ),  # Will show 'None' or reason
+                ("Alarm Active:", self.var_diag_alarm),
+            ],
         )
 
-        btns = ttk.Frame(head)
-        btns.grid(row=0, column=1, sticky="e")
-        ttk.Button(btns, text="Export Diagnostics", command=self._export_diagnostics).grid(row=0, column=0)
+        # Card 2: Environment
+        create_diag_card(
+            f,
+            1,
+            1,
+            "Measurements",
+            [
+                ("Viscosity (cP):", self.var_visc),
+                ("Temperature (°C):", self.var_temp),
+                ("Frequency (Hz):", self.var_freq),
+                ("Magnitude:", self.var_diag_mag),
+                ("Phase (deg):", self.var_diag_phase),
+                ("ADC Raw:", self.var_diag_adc),
+            ],
+        )
 
-        self.txt_diag = tk.Text(f, wrap="word")
-        self.txt_diag.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
-        self.txt_diag.insert("1.0", "Waiting for frames...\n")
-        self.txt_diag.configure(state="disabled")
+        # Card 3: Instrument Health
+        create_diag_card(
+            f,
+            2,
+            0,
+            "Quality Metrics",
+            [
+                ("Confidence (%):", self.var_conf),
+                ("Health Score:", self.var_health),
+                ("Status:", self.var_diag_health_ok),
+                ("Duty Cycle:", self.var_diag_duty),
+                ("Frame TS (s):", self.var_diag_ts),
+            ],
+        )
+
+        # Card 4: System Info
+        create_diag_card(
+            f,
+            2,
+            1,
+            "System Info",
+            [
+                ("Remote Enabled:", self.var_diag_remote),
+                ("Last Cmd Src:", self.var_diag_src),
+                ("Active Profile:", self.var_diag_profile),
+                ("Last Fault:", self.var_diag_fault_reason),
+            ],
+        )
 
     def _build_tab_plc(self) -> None:
         f = self.tab_plc
@@ -399,14 +684,18 @@ class EngineerScreen(ttk.Frame):
         head.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         head.columnconfigure(0, weight=1)
 
-        ttk.Label(head, text="PLC / IO", style="Card.TLabel", font=("Segoe UI", 12, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            head, text="PLC / IO", style="Card.TLabel", font=("Segoe UI", 12, "bold")
+        ).grid(row=0, column=0, sticky="w")
 
         note = (
             "Remote control uses Modbus registers.\n"
             "Start/Stop can be from PLC depending on commissioning settings.\n"
             "Comm-loss action is configurable in Settings."
         )
-        ttk.Label(head, text=note, style="CardSecondary.TLabel").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(head, text=note, style="CardSecondary.TLabel").grid(
+            row=1, column=0, sticky="w", pady=(10, 0)
+        )
 
         self.txt_plc = tk.Text(f, wrap="word")
         self.txt_plc.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
@@ -421,17 +710,25 @@ class EngineerScreen(ttk.Frame):
         box.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         box.columnconfigure(0, weight=1)
 
-        ttk.Label(box, text="Commissioning", font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w")
-        self.lbl_comm_state = ttk.Label(box, text="Commissioned: --", style="Card.TLabel")
+        ttk.Label(box, text="Commissioning", font=("Segoe UI", 11, "bold")).grid(
+            row=0, column=0, sticky="w"
+        )
+        self.lbl_comm_state = ttk.Label(
+            box, text="Commissioned: --", style="Card.TLabel"
+        )
         self.lbl_comm_state.grid(row=1, column=0, sticky="w", pady=(8, 0))
 
         btns = ttk.Frame(box)
         btns.grid(row=2, column=0, sticky="w", pady=(12, 0))
 
-        ttk.Button(btns, text="Open Commissioning Wizard", command=lambda: self._navigate("commissioning", force=True)).grid(
-            row=0, column=0, padx=(0, 8)
+        ttk.Button(
+            btns,
+            text="Open Commissioning Wizard",
+            command=lambda: self._navigate("commissioning", force=True),
+        ).grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(btns, text="Lock Engineer Mode", command=self._lock).grid(
+            row=0, column=1
         )
-        ttk.Button(btns, text="Lock Engineer Mode", command=self._lock).grid(row=0, column=1)
 
         ttk.Label(
             box,
@@ -447,20 +744,36 @@ class EngineerScreen(ttk.Frame):
         box.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         box.columnconfigure(1, weight=1)
 
-        ttk.Label(box, text="Engineer Security", font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(box, text="Engineer Security", font=("Segoe UI", 11, "bold")).grid(
+            row=0, column=0, sticky="w"
+        )
 
-        ttk.Label(box, text="Old Password:").grid(row=1, column=0, sticky="w", pady=(10, 0))
-        ttk.Entry(box, textvariable=self.var_old_pwd, show="•").grid(row=1, column=1, sticky="ew", pady=(10, 0))
+        ttk.Label(box, text="Old Password:").grid(
+            row=1, column=0, sticky="w", pady=(10, 0)
+        )
+        ttk.Entry(box, textvariable=self.var_old_pwd, show="•").grid(
+            row=1, column=1, sticky="ew", pady=(10, 0)
+        )
 
-        ttk.Label(box, text="New Password:").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(box, textvariable=self.var_new_pwd, show="•").grid(row=2, column=1, sticky="ew", pady=(8, 0))
+        ttk.Label(box, text="New Password:").grid(
+            row=2, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Entry(box, textvariable=self.var_new_pwd, show="•").grid(
+            row=2, column=1, sticky="ew", pady=(8, 0)
+        )
 
-        ttk.Label(box, text="Confirm New:").grid(row=3, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(box, textvariable=self.var_new_pwd2, show="•").grid(row=3, column=1, sticky="ew", pady=(8, 0))
+        ttk.Label(box, text="Confirm New:").grid(
+            row=3, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Entry(box, textvariable=self.var_new_pwd2, show="•").grid(
+            row=3, column=1, sticky="ew", pady=(8, 0)
+        )
 
         btns = ttk.Frame(box)
         btns.grid(row=4, column=0, columnspan=2, sticky="w", pady=(12, 0))
-        ttk.Button(btns, text="Change Password", command=self._change_password).grid(row=0, column=0)
+        ttk.Button(btns, text="Change Password", command=self._change_password).grid(
+            row=0, column=0
+        )
 
         ttk.Label(
             box,
@@ -495,40 +808,40 @@ class EngineerScreen(ttk.Frame):
     # ---------------------------
 
     def _auth_verify(self, password: str) -> bool:
-            a = self.auth
-            if a is None:
-                # If no auth module provided, allow unlock (for development)
-                return True
+        a = self.auth
+        if a is None:
+            # If no auth module provided, allow unlock (for development)
+            return True
 
-            # 1. Explicitly check for 'login' method (This is what auth_engineer.py uses)
-            if hasattr(a, "login"):
-                try:
-                    res = a.login(password)
-                    # The backend returns an AuthResult object, so we must check '.ok'
-                    if hasattr(res, "ok"):
-                        return bool(res.ok)
-                    # If it returns a simple boolean, just use it
-                    return bool(res)
-                except Exception:
-                    return False
-
-            # 2. Fallback for other naming conventions (legacy support)
-            for fn_name in ("verify", "verify_password", "check_password", "authenticate"):
-                fn = getattr(a, fn_name, None)
-                if callable(fn):
-                    try:
-                        return bool(fn(password))
-                    except Exception:
-                        continue
-
-            # 3. Attribute-based fallback (plain text attribute check)
+        # 1. Explicitly check for 'login' method (This is what auth_engineer.py uses)
+        if hasattr(a, "login"):
             try:
-                if hasattr(a, "password") and str(getattr(a, "password")) == password:
-                    return True
+                res = a.login(password)
+                # The backend returns an AuthResult object, so we must check '.ok'
+                if hasattr(res, "ok"):
+                    return bool(res.ok)
+                # If it returns a simple boolean, just use it
+                return bool(res)
             except Exception:
-                pass
-                
-            return False
+                return False
+
+        # 2. Fallback for other naming conventions (legacy support)
+        for fn_name in ("verify", "verify_password", "check_password", "authenticate"):
+            fn = getattr(a, fn_name, None)
+            if callable(fn):
+                try:
+                    return bool(fn(password))
+                except Exception:
+                    continue
+
+        # 3. Attribute-based fallback (plain text attribute check)
+        try:
+            if hasattr(a, "password") and str(getattr(a, "password")) == password:
+                return True
+        except Exception:
+            pass
+
+        return False
 
     def _auth_lock(self) -> None:
         a = self.auth
@@ -546,7 +859,7 @@ class EngineerScreen(ttk.Frame):
     # ---------------------------
     # Config wrapper
     # ---------------------------
-    
+
     def _wrap_config(self, config: Optional[Any]) -> Optional[Any]:
         """
         If config is a dict, wrap it in a ConfigManager instance for save support.
@@ -554,22 +867,23 @@ class EngineerScreen(ttk.Frame):
         """
         if config is None:
             return None
-        
+
         # If it's already a ConfigManager (has save method), use it
         if hasattr(config, "save") or hasattr(config, "set"):
             return config
-        
+
         # If it's a dict, create a ConfigManager wrapper
         if isinstance(config, dict):
             try:
                 from viscologic.core.config_manager import ConfigManager
+
                 mgr = ConfigManager()
                 mgr._config_dict = config  # Set the dict directly
                 return mgr
             except Exception:
                 # Fallback: return dict as-is (will use event bus fallback)
                 return config
-        
+
         return config
 
     # ---------------------------
@@ -577,19 +891,99 @@ class EngineerScreen(ttk.Frame):
     # ---------------------------
 
     def _load_from_config(self) -> None:
-        self.var_mode.set(_safe_str(self._cfg_get("app.mode", "tabletop")).lower())
-        self.var_control.set(_safe_str(self._cfg_get("app.control_source", "local")).lower())
-        self.var_remote_enable.set(bool(self._cfg_get("protocols.remote_enable", True)))
-        self.var_comm_loss.set(_safe_str(self._cfg_get("protocols.comm_loss_action", "safe_stop")).lower())
-        self.var_inline_auto_resume.set(bool(self._cfg_get("app.inline_auto_resume", True)))
+        """
+        Load values from config manager with strict normalization and safe fallbacks.
+        Ensures UI always displays valid values even if the config file is messy.
+        """
+        # 1. Core Settings
+        # Priority: app.mode -> mode.default_mode -> "tabletop"
+        raw_mode = (
+            _safe_str(
+                self._cfg_get(
+                    "app.mode", self._cfg_get("mode.default_mode", "tabletop")
+                )
+            )
+            .lower()
+            .strip()
+        )
+        if raw_mode not in ("tabletop", "inline"):
+            raw_mode = "tabletop"
+        self.var_mode.set(raw_mode.title())
 
-        self.var_max_current_ma.set(str(_safe_float(self._cfg_get("safety.max_current_ma", 150), 150)))
-        self.var_max_temp_c.set(str(_safe_float(self._cfg_get("safety.max_temp_c", 80), 80)))
+        # Priority: app.control_source -> mode.default_control_source -> "local"
+        raw_ctrl = (
+            _safe_str(
+                self._cfg_get(
+                    "app.control_source",
+                    self._cfg_get("mode.default_control_source", "local"),
+                )
+            )
+            .lower()
+            .strip()
+        )
+        if raw_ctrl not in ("local", "remote", "mixed"):
+            raw_ctrl = "local"
+        self.var_control.set(raw_ctrl)
 
-        self.var_target_freq_hz.set(str(_safe_float(self._cfg_get("dsp.target_freq_hz", 180.0), 180.0)))
-        self.var_sweep_span_hz.set(str(_safe_float(self._cfg_get("dsp.sweep_span_hz", 5.0), 5.0)))
-        self.var_sweep_step_hz.set(str(_safe_float(self._cfg_get("dsp.sweep_step_hz", 0.1), 0.1)))
-        self.var_lockin_tau_s.set(str(_safe_float(self._cfg_get("dsp.lockin_tau_s", 0.2), 0.2)))
+        self.var_remote_enable.set(
+            bool(
+                self._cfg_get(
+                    "protocols.remote_enable", self._cfg_get("mode.remote_enable", True)
+                )
+            )
+        )
+
+        # Priority: protocols.comm_loss_action -> mode.comm_loss_action -> "safe_stop"
+        raw_loss = (
+            _safe_str(
+                self._cfg_get(
+                    "protocols.comm_loss_action",
+                    self._cfg_get("mode.comm_loss_action", "safe_stop"),
+                )
+            )
+            .lower()
+            .strip()
+        )
+        if raw_loss not in ("safe_stop", "hold_last", "pause"):
+            raw_loss = "safe_stop"
+        self.var_comm_loss.set(raw_loss)
+
+        self.var_inline_auto_resume.set(
+            bool(
+                self._cfg_get(
+                    "app.inline_auto_resume",
+                    self._cfg_get("mode.auto_resume_inline", True),
+                )
+            )
+        )
+
+        # 2. Safety Limits (with safe scaling/fallbacks)
+        self.var_max_current_ma.set(
+            str(_safe_float(self._cfg_get("safety.max_current_ma", 150), 150))
+        )
+        self.var_max_temp_c.set(
+            str(_safe_float(self._cfg_get("safety.max_temp_c", 80), 80))
+        )
+
+        # 3. Signal / Lock (DSP)
+        self.var_target_freq_hz.set(
+            str(_safe_float(self._cfg_get("dsp.target_freq_hz", 180.0), 180.0))
+        )
+        self.var_sweep_span_hz.set(
+            str(_safe_float(self._cfg_get("dsp.sweep_span_hz", 5.0), 5.0))
+        )
+        self.var_sweep_step_hz.set(
+            str(_safe_float(self._cfg_get("dsp.sweep_step_hz", 0.1), 0.1))
+        )
+        self.var_lockin_tau_s.set(
+            str(_safe_float(self._cfg_get("dsp.lockin_tau_s", 0.2), 0.2))
+        )
+
+        # 4. Health & Stability
+        self.var_health_enable.set(bool(self._cfg_get("health.enable", True)))
+        self.var_min_conf.set(
+            str(_safe_float(self._cfg_get("health.min_confidence_ok", 60.0), 60.0))
+        )
 
     def _save_to_config(self) -> None:
         # Validate
@@ -600,6 +994,7 @@ class EngineerScreen(ttk.Frame):
             span = float(self.var_sweep_span_hz.get().strip())
             step = float(self.var_sweep_step_hz.get().strip())
             tau = float(self.var_lockin_tau_s.get().strip())
+            conf = float(self.var_min_conf.get().strip())
         except Exception:
             messagebox.showerror("Validation", "Numeric fields must be valid numbers.")
             return
@@ -622,14 +1017,22 @@ class EngineerScreen(ttk.Frame):
         if tau <= 0 or tau > 10:
             messagebox.showerror("Validation", "Lock-in Tau must be 0..10 s")
             return
+        if conf < 0 or conf > 100:
+            messagebox.showerror("Validation", "Min Confidence must be 0..100 %")
+            return
 
         # Write
-        self._cfg_set("app.mode", (self.var_mode.get() or "tabletop").lower())
+        mode_val = (self.var_mode.get() or "tabletop").lower()
+        self._cfg_set("app.mode", mode_val)
+
         self._cfg_set("app.control_source", (self.var_control.get() or "local").lower())
         self._cfg_set("app.inline_auto_resume", bool(self.var_inline_auto_resume.get()))
 
         self._cfg_set("protocols.remote_enable", bool(self.var_remote_enable.get()))
-        self._cfg_set("protocols.comm_loss_action", (self.var_comm_loss.get() or "safe_stop").lower())
+        self._cfg_set(
+            "protocols.comm_loss_action",
+            (self.var_comm_loss.get() or "safe_stop").lower(),
+        )
 
         self._cfg_set("safety.max_current_ma", float(max_i))
         self._cfg_set("safety.max_temp_c", float(max_t))
@@ -639,32 +1042,45 @@ class EngineerScreen(ttk.Frame):
         self._cfg_set("dsp.sweep_step_hz", float(step))
         self._cfg_set("dsp.lockin_tau_s", float(tau))
 
+        self._cfg_set("health.enable", bool(self.var_health_enable.get()))
+        self._cfg_set("health.min_confidence_ok", float(conf))
+
         # Save to config
         save_success = self._cfg_save()
-        
+
         if not save_success:
-            messagebox.showwarning("Warning", "Settings were applied but may not have been saved to disk. Check logs for details.")
+            messagebox.showwarning(
+                "Warning",
+                "Settings were applied but may not have been saved to disk. Check logs for details.",
+            )
 
         # Apply settings to orchestrator via event bus
-        self._emit("settings.updated", {
-            "ts_ms": now_ms(),
-            "mode": (self.var_mode.get() or "tabletop").lower(),
-            "control_source": (self.var_control.get() or "local").lower(),
-            "remote_enable": bool(self.var_remote_enable.get()),
-            "comm_loss_action": (self.var_comm_loss.get() or "safe_stop").lower(),
-            "inline_auto_resume": bool(self.var_inline_auto_resume.get()),
-            "max_current_ma": float(max_i),
-            "max_temp_c": float(max_t),
-            "target_freq_hz": float(tf),
-            "sweep_span_hz": float(span),
-            "sweep_step_hz": float(step),
-            "lockin_tau_s": float(tau),
-        })
-        
+        self._emit(
+            "settings.updated",
+            {
+                "ts_ms": now_ms(),
+                "mode": mode_val,
+                "control_source": (self.var_control.get() or "local").lower(),
+                "remote_enable": bool(self.var_remote_enable.get()),
+                "comm_loss_action": (self.var_comm_loss.get() or "safe_stop").lower(),
+                "inline_auto_resume": bool(self.var_inline_auto_resume.get()),
+                "max_current_ma": float(max_i),
+                "max_temp_c": float(max_t),
+                "target_freq_hz": float(tf),
+                "sweep_span_hz": float(span),
+                "sweep_step_hz": float(step),
+                "lockin_tau_s": float(tau),
+                "health_enabled": bool(self.var_health_enable.get()),
+                "min_confidence_ok": float(conf),
+            },
+        )
+
         if save_success:
             messagebox.showinfo("Saved", "Settings saved successfully and applied.")
         else:
-            messagebox.showinfo("Applied", "Settings applied (save to disk may have failed).")
+            messagebox.showinfo(
+                "Applied", "Settings applied (save to disk may have failed)."
+            )
 
     def _cfg_get(self, key: str, default: Any) -> Any:
         c = self.cfg
@@ -720,7 +1136,10 @@ class EngineerScreen(ttk.Frame):
                     # Log error but continue
                     try:
                         import logging
-                        logging.getLogger("viscologic.engineer_screen").warning(f"Config save failed: {e}")
+
+                        logging.getLogger("viscologic.engineer_screen").warning(
+                            f"Config save failed: {e}"
+                        )
                     except Exception:
                         pass
                     continue
@@ -755,7 +1174,9 @@ class EngineerScreen(ttk.Frame):
                 pass
 
         # Fallback to generic subscribe/on methods
-        subscribe = getattr(self.bus, "subscribe", None) or getattr(self.bus, "on", None)
+        subscribe = getattr(self.bus, "subscribe", None) or getattr(
+            self.bus, "on", None
+        )
 
         if callable(subscribe):
             try:
@@ -769,13 +1190,10 @@ class EngineerScreen(ttk.Frame):
         # If all subscription methods fail, use polling fallback
         self._bus_subscribed = False
 
-
-
-
     def _emit(self, topic: str, payload: Dict[str, Any]) -> None:
         if self.bus is None:
             return
-        
+
         for pub_name in ("publish", "emit", "post", "put"):
             fn = getattr(self.bus, pub_name, None)
             if callable(fn):
@@ -789,7 +1207,12 @@ class EngineerScreen(ttk.Frame):
         self._cmd_seq += 1
         self._emit(
             "ui.command",
-            {"cmd": str(cmd).upper(), "source": "local", "seq": self._cmd_seq, "ts_ms": now_ms()},
+            {
+                "cmd": str(cmd).upper(),
+                "source": "local",
+                "seq": self._cmd_seq,
+                "ts_ms": now_ms(),
+            },
         )
 
     def _navigate(self, to: str, force: bool = False) -> None:
@@ -797,6 +1220,7 @@ class EngineerScreen(ttk.Frame):
         if callable(self.nav_cb):
             # Check if callback supports force parameter
             import inspect
+
             sig = inspect.signature(self.nav_cb)
             if "force" in sig.parameters:
                 self.nav_cb(to, force=force)
@@ -854,7 +1278,6 @@ class EngineerScreen(ttk.Frame):
         except Exception:
             pass
 
-
     def _poll_refresh(self) -> None:
         # Always poll for latest frame (ensures we get data even if subscription fails)
         if self.bus:
@@ -878,15 +1301,19 @@ class EngineerScreen(ttk.Frame):
 
         # Update overview from last frame
         f = self._last_frame or {}
-        
+
         visc = f.get("viscosity_cp", f.get("visc_cp", None))
         temp = f.get("temp_c", None)
-        locked = f.get("status", "LOCKED" if bool(f.get("locked", False)) else "SEARCHING")
+        locked = f.get(
+            "status", "LOCKED" if bool(f.get("locked", False)) else "SEARCHING"
+        )
         conf = f.get("confidence", f.get("confidence_pct", None))
         health = f.get("health_score", f.get("health", None))
         freq = f.get("f_peak_hz", f.get("freq_hz", None))
 
-        feature = f.get("feature_value", f.get("magnitude_clean", f.get("magnitude", None)))
+        feature = f.get(
+            "feature_value", f.get("magnitude_clean", f.get("magnitude", None))
+        )
 
         # Update UI variables
         if visc is None:
@@ -911,8 +1338,12 @@ class EngineerScreen(ttk.Frame):
         else:
             self.var_health.set(f"{_safe_float(health, 0.0):.1f}")
 
-        self.var_freq.set(f"{_safe_float(freq, 0.0):.2f}" if freq is not None else "--.-")
-        self.var_feature.set(f"{_safe_float(feature, 0.0):.6f}" if feature is not None else "--")
+        self.var_freq.set(
+            f"{_safe_float(freq, 0.0):.2f}" if freq is not None else "--.-"
+        )
+        self.var_feature.set(
+            f"{_safe_float(feature, 0.0):.6f}" if feature is not None else "--"
+        )
 
         # Diagnostics text
         if hasattr(self, "txt_diag"):
@@ -932,9 +1363,9 @@ class EngineerScreen(ttk.Frame):
         self.after(350, self._poll_refresh)
 
     def _render_diag_text(self) -> None:
+        """Populates the diagnostic StringVars from the latest frame."""
         f = self._last_frame or {}
-        
-        # Format values with proper defaults
+
         def fmt(key: str, default: str = "", alt_keys: Optional[list] = None) -> str:
             if alt_keys:
                 for k in [key] + alt_keys:
@@ -943,8 +1374,13 @@ class EngineerScreen(ttk.Frame):
                         return str(val)
             val = f.get(key)
             return str(val) if val is not None and val != "" else default
-        
-        def fmt_float(key: str, default: str = "", alt_keys: Optional[list] = None, decimals: int = 3) -> str:
+
+        def fmt_float(
+            key: str,
+            default: str = "",
+            alt_keys: Optional[list] = None,
+            decimals: int = 3,
+        ) -> str:
             if alt_keys:
                 for k in [key] + alt_keys:
                     val = f.get(k)
@@ -960,48 +1396,27 @@ class EngineerScreen(ttk.Frame):
                 except (ValueError, TypeError):
                     pass
             return default
-        
-        lines = [
-            "=== System State ===",
-            f"State: {fmt('state', 'UNKNOWN', ['status'])}",
-            f"Mode: {fmt('mode', 'unknown')}",
-            f"Control Source: {fmt('control_source', 'unknown')}",
-            f"Locked: {fmt('locked', 'False')}",
-            f"Fault: {fmt('fault', 'False', ['fault_latched'])}",
-            f"Alarm Active: {fmt('alarm_active', 'False', ['alarms'])}",
-            "",
-            "=== Measurements ===",
-            f"Timestamp (s): {fmt_float('ts', '', ['timestamp_ms'], 3)}",
-            f"Viscosity (cP): {fmt_float('viscosity_cp', '0.000', ['visc_cp'], 3)}",
-            f"Temperature (°C): {fmt_float('temp_c', '0.0', None, 1)}",
-            f"Frequency (Hz): {fmt_float('freq_hz', '0.00', ['f_peak_hz'], 2)}",
-            f"Magnitude: {fmt_float('magnitude', '0.000', ['magnitude_clean'], 6)}",
-            f"Phase (deg): {fmt_float('phase_deg', '0.0', None, 1)}",
-            f"ADC Raw: {fmt_float('adc_raw', '0.000', ['adc'], 3)}",
-            f"Duty: {fmt_float('duty', '0.000', None, 3)}",
-            "",
-            "=== Quality Metrics ===",
-            f"Confidence (%): {fmt_float('confidence', '0', ['confidence_pct'], 1)}",
-            f"Health Score: {fmt_float('health_score', '0', ['health_pct'], 1)}",
-            f"Health OK: {fmt('health_ok', 'False')}",
-            "",
-            "=== System Info ===",
-            f"Remote Enabled: {fmt('remote_enabled', 'False')}",
-            f"Last Command Source: {fmt('last_cmd_source', 'unknown')}",
-            f"Active Profile: {fmt('active_profile', 'Default')}",
-            f"Last Fault Reason: {fmt('last_fault_reason', 'None', ['last_error', 'error'])}",
-        ]
-        
-        text = "\n".join(lines) + "\n"
 
-        self.txt_diag.configure(state="normal")
-        self.txt_diag.delete("1.0", tk.END)
-        self.txt_diag.insert("1.0", text)
-        self.txt_diag.configure(state="disabled")
+        # Update the specific Diagnostic StringVars
+        self.var_diag_ts.set(fmt_float("ts", "--", ["timestamp_ms"], 3))
+        self.var_diag_mag.set(fmt_float("magnitude", "0.000", ["magnitude_clean"], 6))
+        self.var_diag_phase.set(fmt_float("phase_deg", "0.0", None, 1))
+        self.var_diag_adc.set(fmt_float("adc_raw", "0.000", ["adc"], 3))
+        self.var_diag_duty.set(fmt_float("duty", "0.000", None, 3))
+
+        self.var_diag_remote.set(fmt("remote_enabled", "False"))
+        self.var_diag_src.set(fmt("last_cmd_source", "unknown"))
+        self.var_diag_profile.set(fmt("active_profile", "Default"))
+        self.var_diag_fault_reason.set(
+            fmt("last_fault_reason", "None", ["last_error", "error"])
+        )
+
+        self.var_diag_health_ok.set(fmt("health_ok", "False"))
+        self.var_diag_alarm.set(fmt("alarm_active", "False", ["alarms"]))
 
     def _render_plc_text(self) -> None:
         f = self._last_frame or {}
-        
+
         # Format helper
         def fmt(key: str, default: str = "", alt_keys: Optional[list] = None) -> str:
             if alt_keys:
@@ -1011,25 +1426,27 @@ class EngineerScreen(ttk.Frame):
                         return str(val)
             val = f.get(key)
             return str(val) if val is not None and val != "" else default
-        
+
         # Get modbus status if available (may not be in frame)
         mb = f.get("modbus", None)
         if not isinstance(mb, dict):
             mb = {}
-        
+
         # Get effective control settings from frame or UI vars
         control_source = fmt("control_source", self.var_control.get())
         remote_enabled = fmt("remote_enabled", str(self.var_remote_enable.get()))
         comm_loss_action = self.var_comm_loss.get()
-        
+
         # Try to get from config if not in frame
         if not control_source or control_source == "":
             control_source = _safe_str(self._cfg_get("app.control_source", "local"))
         if remote_enabled == "":
             remote_enabled = str(bool(self._cfg_get("protocols.remote_enable", True)))
         if not comm_loss_action:
-            comm_loss_action = _safe_str(self._cfg_get("protocols.comm_loss_action", "safe_stop"))
-        
+            comm_loss_action = _safe_str(
+                self._cfg_get("protocols.comm_loss_action", "safe_stop")
+            )
+
         lines = [
             "=== Modbus Communication ===",
             f"Status: {'Connected' if mb.get('connected') or mb.get('comm_ok') else 'Not Available'}",
@@ -1059,7 +1476,7 @@ class EngineerScreen(ttk.Frame):
             "  - Communication timeout occurs",
             f"• Current action on comm-loss: {comm_loss_action}",
         ]
-        
+
         text = "\n".join(lines) + "\n"
 
         self.txt_plc.configure(state="normal")
@@ -1079,7 +1496,9 @@ class EngineerScreen(ttk.Frame):
                     except Exception:
                         commissioned = False
         try:
-            self.lbl_comm_state.config(text=f"Commissioned: {'YES' if commissioned else 'NO'}")
+            self.lbl_comm_state.config(
+                text=f"Commissioned: {'YES' if commissioned else 'NO'}"
+            )
         except Exception:
             pass
 
@@ -1108,7 +1527,9 @@ class EngineerScreen(ttk.Frame):
             messagebox.showerror("Validation", "All password fields are required.")
             return
         if newp != newp2:
-            messagebox.showerror("Validation", "New password confirmation does not match.")
+            messagebox.showerror(
+                "Validation", "New password confirmation does not match."
+            )
             return
         if len(newp) < 4:
             messagebox.showerror("Validation", "New password too short (min 4 chars).")
@@ -1142,7 +1563,9 @@ class EngineerScreen(ttk.Frame):
                 result = a.change_password(session_token, newp)
                 if hasattr(result, "ok"):
                     if result.ok:
-                        messagebox.showinfo("Done", "Engineer password updated successfully.")
+                        messagebox.showinfo(
+                            "Done", "Engineer password updated successfully."
+                        )
                         self.var_old_pwd.set("")
                         self.var_new_pwd.set("")
                         self.var_new_pwd2.set("")
@@ -1152,7 +1575,9 @@ class EngineerScreen(ttk.Frame):
                         return
                     else:
                         reason = getattr(result, "reason", "Unknown error")
-                        messagebox.showerror("Error", f"Password change failed: {reason}")
+                        messagebox.showerror(
+                            "Error", f"Password change failed: {reason}"
+                        )
                         return
             except Exception as e:
                 messagebox.showerror("Error", f"Password change failed:\n{e}")
@@ -1181,5 +1606,6 @@ class EngineerScreen(ttk.Frame):
                     messagebox.showerror("Error", f"Password change failed:\n{e}")
                     return
 
-        messagebox.showerror("Error", "auth_engineer does not support password change API.")
-
+        messagebox.showerror(
+            "Error", "auth_engineer does not support password change API."
+        )
