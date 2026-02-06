@@ -97,6 +97,53 @@ def _safe_str(v: Any, default: str = "") -> str:
         return default
 
 
+class ScrollableFrame(ttk.Frame):
+    """
+    A generic scrollable frame for Tkinter.
+    """
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+
+        self.canvas = tk.Canvas(self, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas_frame = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        
+        # Ensure the interior frame expands to fill width
+        self.canvas.bind('<Configure>', self._on_canvas_configure)
+
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+        # Mousewheel support
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+
+    def _on_canvas_configure(self, event):
+        # Resize internal frame to match canvas width
+        self.canvas.itemconfig(self.canvas_frame, width=event.width)
+
+    def _on_mousewheel(self, event):
+        # Fallback for linux vs windows
+        if event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
+        else:
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+
 class EngineerScreen(ttk.Frame):
     def __init__(
         self,
@@ -392,7 +439,11 @@ class EngineerScreen(ttk.Frame):
         )
 
     def _build_tab_settings(self) -> None:
-        f = self.tab_settings
+        # Wrap everything in a scrollable frame
+        self.settings_scroll = ScrollableFrame(self.tab_settings)
+        self.settings_scroll.pack(fill="both", expand=True)
+        f = self.settings_scroll.scrollable_frame
+
         f.columnconfigure(0, weight=1)
 
         card = ttk.Frame(f, padding=12, relief="groove")
@@ -531,7 +582,7 @@ class EngineerScreen(ttk.Frame):
             card,
             text="Note: STOP is always allowed. If Control=remote, UI START may be disabled by core logic.",
             style="CardSecondary.TLabel",
-        ).grid(row=17, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        ).grid(row=21, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
     def _build_tab_cal(self) -> None:
         f = self.tab_cal
@@ -565,7 +616,11 @@ class EngineerScreen(ttk.Frame):
         ).grid(row=0, column=1)
 
     def _build_tab_diag(self) -> None:
-        f = self.tab_diag
+        # Wrap in scrollable frame
+        self.diag_scroll = ScrollableFrame(self.tab_diag)
+        self.diag_scroll.pack(fill="both", expand=True)
+        f = self.diag_scroll.scrollable_frame
+
         f.columnconfigure(0, weight=1)
         f.columnconfigure(1, weight=1)
 
@@ -1355,10 +1410,14 @@ class EngineerScreen(ttk.Frame):
 
         # Status line
         last_err = _safe_str(f.get("last_error", f.get("error", "")), "")
+        system_state = _safe_str(f.get("status", "IDLE"), "IDLE").upper()
+        
         if bool(f.get("fault_latched", False)):
-            self.var_status.set(f"FAULT LATCHED: {last_err[:140]}")
+            self.var_status.set(f"SYSTEM FAULT: {last_err[:140]}")
+        elif last_err:
+            self.var_status.set(f"SYSTEM WARNING: {last_err[:150]}")
         else:
-            self.var_status.set(last_err[:160] if last_err else "OK")
+            self.var_status.set(f"SYSTEM STATUS: {system_state} - OK")
 
         self.after(350, self._poll_refresh)
 

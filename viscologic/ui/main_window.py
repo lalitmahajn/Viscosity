@@ -171,7 +171,7 @@ class MainWindowApp:
         self.var_visc = tk.StringVar(value="Visc: --.- cP")
         self.var_temp = tk.StringVar(value="Temp: --.- °C")
         self.var_health = tk.StringVar(value="Health: -- %")
-        self.var_status = tk.StringVar(value="System: INIT")
+        self.var_status = tk.StringVar(value="Machine State: INIT")
 
         ttk.Label(self.status_frame, textvariable=self.var_visc, style="Header.TLabel", 
                  font=("Segoe UI", 12, "bold"), width=18).pack(side="left", padx=10)
@@ -384,7 +384,7 @@ class MainWindowApp:
                     state = str(state).upper()
                 else:
                     state = "IDLE"
-                self.var_status.set(f"Sys: {state}")
+                self.var_status.set(f"Machine State: {state}")
         self.root.after(250, self._poll_status_loop)
 
     def _on_close(self):

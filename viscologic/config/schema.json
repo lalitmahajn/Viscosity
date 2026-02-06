@@ -79,7 +79,12 @@
           "additionalProperties": true,
           "properties": {
             "enabled": { "type": "boolean" },
-            "spi_cs": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "spi_cs": {
+              "oneOf": [
+                { "type": "integer", "minimum": 0, "maximum": 10 },
+                { "type": "string" }
+              ]
+            },
             "rtd_nominal": { "type": "number", "minimum": 50.0, "maximum": 1000.0 },
             "ref_resistor": { "type": "number", "minimum": 10.0, "maximum": 2000.0 },
             "wires": { "type": "integer", "enum": [2, 3, 4] },

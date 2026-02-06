@@ -7,9 +7,14 @@ jsonschema>=4.21.0
 pymodbus>=3.6.0
 
 # Raspberry Pi hardware interfaces
-# smbus2>=0.4.3          # I2C (ADS1115)
-# spidev>=3.6            # SPI (MAX31865)
-# RPi.GPIO>=0.7.1        # GPIO/PWM (fallback if you use RPi.GPIO in driver)
+smbus2>=0.4.3          # I2C (ADS1115)
+spidev>=3.6            # SPI (MAX31865)
+RPi.GPIO>=0.7.1        # GPIO/PWM (fallback)
+adafruit-blinka>=8.44.0 # Essential for 'board' module on Pi
+adafruit-circuitpython-ads1x15>=3.0.2
+adafruit-circuitpython-max31865>=2.2.26
+lgpio>=0.2.2.0         # Essential for Pi 5 PWM/GPIO
+pigpio>=1.78           # Legacy Pi support
 
 # DSP / math (lock-in, filters, sweep support)
 numpy>=1.24.0
@@ -18,4 +23,4 @@ numpy>=1.24.0
 typing-extensions>=4.7.0
 
 # Audio input for testing
-sounddevice>=0.4.6
+# sounddevice>=0.4.6

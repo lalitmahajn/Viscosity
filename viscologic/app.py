@@ -371,8 +371,7 @@ def main() -> int:
 
         # Start core services
         ctx.orchestrator.start()
-        if ctx.modbus:
-            ctx.modbus.start()
+        # Modbus server is started within ctx.orchestrator.start()
 
         # If UI exists, run UI loop (blocking)
         if ctx.ui is not None:

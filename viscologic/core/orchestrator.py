@@ -172,6 +172,8 @@ class Orchestrator:
         else:
             drive_cfg = {
                 "gpio_pin": int(self._cfg_get("hardware.gpio.pwm_pin", 18)),
+                "backend": str(self._cfg_get("drivers.drive_pwm.backend", "pigpio")),
+                "pwm_range": int(self._cfg_get("drivers.drive_pwm.pwm_range", 1000000)),
                 "default_freq_hz": int(self._cfg_get("drivers.drive_pwm.pwm_freq_hz", 20000)),
                 "duty_min": float(self._cfg_get("drivers.drive_pwm.duty_min", 0.02)),
                 "duty_max": float(self._cfg_get("drivers.drive_pwm.duty_max", 0.85)),

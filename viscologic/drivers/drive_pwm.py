@@ -85,7 +85,11 @@ class DrivePWM:
 
     def stop(self) -> None:
         try:
-            if self._pi is not None:
+            if self.backend == "lgpio" and self._pi is not None:
+                # lgpio.tx_pwm takes (handle, pin, freq, duty)
+                import lgpio
+                lgpio.tx_pwm(self._pi, self.gpio_pin, int(self._freq_hz), 0)
+            elif self._pi is not None:
                 self._pi.set_PWM_dutycycle(self.gpio_pin, 0)
         except Exception:
             pass
@@ -96,9 +100,10 @@ class DrivePWM:
         """Close hardware connection. Allows reinitialization."""
         try:
             if self._pi is not None:
-                # Check if it's real pigpio (has 'connected' attribute) vs mock
-                if hasattr(self._pi, 'connected') and hasattr(self._pi, 'stop'):
-                    # Real pigpio connection
+                if self.backend == "lgpio":
+                    import lgpio
+                    lgpio.gpiochip_close(self._pi)
+                elif hasattr(self._pi, 'connected') and hasattr(self._pi, 'stop'):
                     self._pi.stop()  # type: ignore[union-attr]
         except Exception:
             pass
@@ -133,22 +138,31 @@ class DrivePWM:
         f = float(freq_hz)
         if f < 1.0:
             f = 1.0
-        if f > 2000.0:
-            f = 2000.0
+        if f > 20000.0: # Pi 5 can handle much higher PWM freqs
+            f = 20000.0
 
-        # pigpio sets hardware PWM on specific pins; fallback to software PWM if needed.
-        self._pi.set_PWM_frequency(self.gpio_pin, int(round(f)))  # type: ignore[union-attr]
+        if self.backend == "lgpio":
+            import lgpio
+            duty = float(self._amp * 100.0)
+            lgpio.tx_pwm(self._pi, self.gpio_pin, int(f), duty)
+        else:
+            # pigpio sets hardware PWM on specific pins; fallback to software PWM if needed.
+            self._pi.set_PWM_frequency(self.gpio_pin, int(round(f)))  # type: ignore[union-attr]
         self._freq_hz = f
 
     def set_amplitude(self, amplitude: float) -> None:
         self._ensure_open()
         a = self._clamp01(float(amplitude))
-        duty = int(round(a * self.pwm_range))
-        duty = max(0, min(self.pwm_range, duty))
-
-        self._pi.set_PWM_range(self.gpio_pin, self.pwm_range)  # type: ignore[union-attr]
-        # pigpio dutycycle uses 0..range for set_PWM_dutycycle only if range is set.
-        self._pi.set_PWM_dutycycle(self.gpio_pin, duty)  # type: ignore[union-attr]
+        
+        if self.backend == "lgpio":
+            import lgpio
+            duty = float(a * 100.0)
+            lgpio.tx_pwm(self._pi, self.gpio_pin, int(self._freq_hz), duty)
+        else:
+            duty = int(round(a * self.pwm_range))
+            duty = max(0, min(self.pwm_range, duty))
+            self._pi.set_PWM_range(self.gpio_pin, self.pwm_range)  # type: ignore[union-attr]
+            self._pi.set_PWM_dutycycle(self.gpio_pin, duty)  # type: ignore[union-attr]
 
         self._amp = a
         self._enabled = (a > 0.0)
@@ -182,30 +196,42 @@ class DrivePWM:
         if self._pi is not None:
             return
 
-        if self.backend != "pigpio":
-            raise RuntimeError("Only pigpio backend supported in this build")
-
         try:
             # --- REAL HARDWARE PATH ---
-            import pigpio  # type: ignore
+            if self.backend == "lgpio":
+                import lgpio
+                h = lgpio.gpiochip_open(0) # Default to chip 0
+                lgpio.gpio_claim_output(h, self.gpio_pin)
+                lgpio.tx_pwm(h, self.gpio_pin, int(self._freq_hz), 0)
+                
+                self.logger.info(
+                    "DrivePWM hardware driver initialized (lgpio) pin=%s",
+                    self.gpio_pin,
+                )
+                self._pi = h
+                
+            elif self.backend == "pigpio":
+                import pigpio  # type: ignore
 
-            pi = pigpio.pi()
-            if not pi.connected:
-                raise RuntimeError("pigpio not connected. Start pigpiod service.")
+                pi = pigpio.pi()
+                if not pi.connected:
+                    raise RuntimeError("pigpio not connected. Start pigpiod service.")
 
-            pi.set_mode(self.gpio_pin, pigpio.OUTPUT)
-            pi.set_PWM_range(self.gpio_pin, self.pwm_range)
-            pi.set_PWM_dutycycle(self.gpio_pin, 0)
+                pi.set_mode(self.gpio_pin, pigpio.OUTPUT)
+                pi.set_PWM_range(self.gpio_pin, self.pwm_range)
+                pi.set_PWM_dutycycle(self.gpio_pin, 0)
 
-            self.logger.info(
-                "DrivePWM hardware driver initialized (pigpio) pin=%s",
-                self.gpio_pin,
-            )
+                self.logger.info(
+                    "DrivePWM hardware driver initialized (pigpio) pin=%s",
+                    self.gpio_pin,
+                )
 
-            self._pi = pi
+                self._pi = pi
+            else:
+                raise RuntimeError(f"Unsupported backend {self.backend}")
 
         except Exception as e:
-            # --- MOCK PATH (Windows / no pigpio) ---
+            # --- MOCK PATH (Windows / no hardware) ---
             self.logger.warning(
                 "[MOCK] DrivePWM mock driver active (no hardware). Reason: %s",
                 e,
